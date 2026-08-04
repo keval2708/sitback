@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+# Block old ?id= parameter URLs
+Disallow: /spas?id=*
+# Block tracking parameter duplicate URLs
+Disallow: /*?_gl=*
+Disallow: /*?_ga=*
+
+
+Sitemap: https://www.sitback.io/sitemap.xml
+Sitemap: https://www.sitback.io/sitemap-blog.xml
+Sitemap: https://www.sitback.io/sitemap-services.xml
+Sitemap: https://www.sitback.io/sitemap-location.xml

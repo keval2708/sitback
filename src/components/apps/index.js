@@ -1,0 +1,10 @@
+export { default as HrModuleShell, HR_TABS } from "@/components/apps/HrModuleShell";
+export { default as HrDashboard } from "@/components/apps/dashboard/HrDashboard";
+export { default as HrEmployees } from "@/components/apps/employees/HrEmployees";
+export { default as HrAttendance } from "@/components/apps/attendance/HrAttendance";
+export { default as HrLeaves } from "@/components/apps/leaves/HrLeaves";
+export { default as HrPayroll } from "@/components/apps/payroll/HrPayroll";
+export { default as HrSlips } from "@/components/apps/slips/HrSlips";
+export { default as HrTips } from "@/components/apps/tips/HrTips";
+export { default as HrReports } from "@/components/apps/reports/HrReports";
+export { default as HrSettings } from "@/components/apps/settings/HrSettings";
