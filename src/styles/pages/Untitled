@@ -1,0 +1,5 @@
+"use client";
+
+import styled from "@emotion/styled";
+import { theme } from "../global/theme";
+import { mediaQueries } from "@/utils/mediaQuery";
