@@ -95,6 +95,8 @@ export default function Subscriptions() {
     getProfileInfo();
   }, []);
 
+  console.log("secret key:", process.env.STRIPE_SECRET_KEY);
+
   // method
   const getSubscription = async (isLoader = true) => {
     try {
