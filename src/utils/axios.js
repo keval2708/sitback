@@ -53,7 +53,7 @@ axiosApiCall.interceptors.response.use(
     if (response && response?.status === 401) {
       removeCookie('token');
       localStorage.clear();
-      window.location.reload();
+      // window.location.reload();
     }else if (response.status === 503) {
         // Redirect to the "Under Maintenance" page
         removeCookie('token');
