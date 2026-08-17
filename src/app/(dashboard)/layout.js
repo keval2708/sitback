@@ -1,10 +1,9 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import sailsIOClient from "sails.io.js";
-import socketIOClient from "socket.io-client";
+import { io } from "socket.io-client";
 import SpaCardExpired from "@/components/shared/modal/SpaCardExpired";
 import { useToaster } from "@/hooks";
 import Layout from "@/layouts";
@@ -20,31 +19,96 @@ const DashboardLayout = ({ children }) => {
   const { token, login } = useSelector(authCheckSliceSelector);
   const { isSpaCardExpired } = useSelector(appointmentCheckSliceSelector);
   const { cardModal } = useSelector(messageCheckSliceSelector);
-  const { toaster } = useToaster();
   const pathname = usePathname();
   const dispatch = useDispatch();
   const { push } = useRouter();
+  const { toaster } = useToaster();
+  const [socketReady, setSocketReady] = useState(false);
 
-  if (socketIOClient.sails) window.io = socketIOClient;
-  else window.io = sailsIOClient(socketIOClient);
+  const subScribeUser = async () => {
+    try {
+      const res = await axiosApiCall.get(API_ROUTER?.SUBSCRIBE_USER);
+      if (!res?.status) {
+        return res;
+      }
+    } catch (error) {
+      toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
+    }
+  };
 
-  window.io.sails.transports = ["websocket"];
-  window.io.sails.url = process.env.SOCKET_URL;
-  window.io.sails.reconnection = true;
-  window.io.sails.headers = {
-    Authorization: `Bearer ${token || null}`,
+  const connectSocket = () => {
+    if (!token || !window.io?.socket) return;
+
+    const spaId = login?.id;
+    const socket = window.io.socket;
+
+    socket.on("connect", function socketConnected() {
+      console.log("socket connected", socket.id, "subscribeSpa", spaId);
+      if (spaId) {
+        socket.emit("subscribeSpa", spaId);
+      }
+
+      socket.emit(`/api/v2/chat/subscribeuser1`, function (resData, jwRes) {
+        if (jwRes?.error) {
+          console.log("subscribe user error", jwRes.statusCode);
+        }
+      });
+
+      socket.emit(`/api/v2/adminchat/subscribeuser1`, function (resData, jwRes) {
+        if (jwRes?.error) {
+          console.log("subscribe user error admin....", jwRes);
+        }
+      });
+    });
+
+    socket.on("connect_error", (err) => {
+      console.log("Socket.IO connect_error:", err?.message || err);
+    });
   };
 
   useEffect(() => {
+    if (!token) return;
+
+    const socketUrl = (process.env.NEXT_PUBLIC_SOCKET_URL || process.env.SOCKET_URL || "").trim();
+
+    const socket = io(socketUrl, {
+      transports: ["websocket"],
+      reconnection: true,
+      auth: { token },
+    });
+
+    window.io = { socket };
+    setSocketReady(true);
+    window.dispatchEvent(new Event("sitback-socket-ready"));
+
     connectSocket();
     subScribeUser();
-  }, [token]);
+
+    return () => {
+      setSocketReady(false);
+      socket.removeAllListeners();
+      socket.disconnect();
+      if (window.io?.socket === socket) {
+        window.io = undefined;
+      }
+    };
+  }, [token, login?.id]);
 
   useEffect(() => {
+    if (window.io) {
+      window.io.socket.on("serviceprovider", async (msg) => {
+        if (msg?.action == "subscriptionPaymentFailed") {
+          dispatch(handleBlock(true));
+          dispatch(handleSubscriptionFail(true));
+          push(PATH_DASHBOARD?.serviceProvider);
+        }
+      });
+    }
+  }, [window.io, socketReady]);
 
-      dispatch(handleSpaCardExpired(!!login?.isSpaCardExpired));
-
-  }, [login?.isSpaCardExpired,]);
+  useEffect(() => {
+    dispatch(handleSpaCardExpired(!!login?.isSpaCardExpired));
+  }, [login?.isSpaCardExpired]);
 
   useEffect(() => {
     if (pathname != PATH_DASHBOARD?.insights) {
@@ -63,49 +127,6 @@ const DashboardLayout = ({ children }) => {
       // document.body.classList.add("sitback-light-yellow-bg-wrapper");
     }
   }, [pathname]);
-
-  useEffect(() => {
-    if (window.io) {
-      window.io.socket.on("serviceprovider", async (msg) => {
-        if (msg?.action == "subscriptionPaymentFailed") {
-          dispatch(handleBlock(true));
-          dispatch(handleSubscriptionFail(true));
-          push(PATH_DASHBOARD?.serviceProvider);
-        }
-      });
-    }
-  }, [window.io]);
-
-  const subScribeUser = async () => {
-    try {
-      const res = await axiosApiCall.get(API_ROUTER?.SUBSCRIBE_USER);
-      if (!res?.status) {
-        return res;
-      }
-    } catch (error) {
-      toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
-    }
-  };
-
-  const connectSocket = async () => {
-    if (token) {
-      window.io.socket.on("connect", function socketConnected() {
-        window.io.socket.get(`/api/v2/chat/subscribeuser1`, function (resData, jwRes) {
-          // console.log("subscribeuser1", resData)
-          if (jwRes.error) {
-            // console.log("subscribe user error", jwRes.statusCode);
-          }
-        });
-
-        window.io.socket.get(`/api/v2/adminchat/subscribeuser1`, function (resData, jwRes) {
-          // console.log("Admin subscribeuser1....", resData)
-          if (jwRes.error) {
-            // console.log("subscribe user error admin....", jwRes);
-          }
-        });
-      });
-    }
-  };
 
   return (
     <>

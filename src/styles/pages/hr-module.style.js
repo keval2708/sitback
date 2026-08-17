@@ -1,13 +1,63 @@
 "use client";
 
+import { css } from "@emotion/react";
 import styled from "@emotion/styled";
 import { theme } from "../global/theme";
 import { mediaQueries } from "@/utils/mediaQuery";
+
+const hrScrollbarStyles = css`
+  scrollbar-width: thin;
+  scrollbar-color: #295086 #e9dede;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #e9dede;
+    border-radius: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #295086;
+    border-radius: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #1f3d66;
+  }
+`;
 
 export const HrPage = styled.div`
   background: #f5f8fc;
   min-height: calc(100vh - 80px);
   color: ${theme.color.secondary};
+  ${hrScrollbarStyles}
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #295086 #e9dede;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #e9dede;
+    border-radius: 6px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #295086;
+    border-radius: 6px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #1f3d66;
+  }
 `;
 
 export const HrSubNav = styled.nav`
@@ -18,7 +68,7 @@ export const HrSubNav = styled.nav`
   align-items: center;
   gap: 8px;
   overflow-x: auto;
-  scrollbar-width: thin;
+  ${hrScrollbarStyles}
 
   ${mediaQueries("sm")`
     padding: 0 12px;
@@ -111,6 +161,23 @@ export const HrPageHeader = styled.div`
   gap: 16px;
   margin-bottom: 24px;
   flex-wrap: wrap;
+
+  ${(props) =>
+    props.$banded &&
+    `
+    background: #F5FBFF;
+    border-bottom: 1px solid #d2e3f0;
+    margin: -28px -32px 24px;
+    padding: 18px 32px;
+    width: calc(100% + 64px);
+    box-sizing: border-box;
+
+    ${mediaQueries("lg")`
+      margin: -24px -20px 24px;
+      padding: 16px 20px;
+      width: calc(100% + 40px);
+    `}
+  `}
 `;
 
 export const HrPageTitleBlock = styled.div`
@@ -135,7 +202,7 @@ export const HrPageTitleBlock = styled.div`
 
     p {
       margin: 0;
-      color: #64748b;
+      color: ${theme.color.secondary};
       font-size: 13px;
       font-weight: 400;
     }
@@ -271,6 +338,14 @@ export const HrCard = styled.div`
   border-radius: 14px;
   padding: 20px;
   box-shadow: 0 2px 10px rgba(41, 80, 134, 0.04);
+  ${(props) =>
+    props.$stretch
+      ? `
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  `
+      : ""}
 `;
 
 export const HrCardHeader = styled.div`
@@ -326,10 +401,15 @@ export const HrChartWrap = styled.div`
   min-height: 220px;
   position: relative;
 
-  svg {
+  svg,
+  canvas {
     width: 100%;
-    height: auto;
+    height: 270px;
     display: block;
+  }
+
+  svg {
+    height: auto;
   }
 `;
 
@@ -466,8 +546,16 @@ export const HrBottomGrid = styled.div`
 export const HrTipsHeader = styled.div`
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 20px;
+
+  .tips-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
 
   svg {
     flex-shrink: 0;
@@ -485,10 +573,18 @@ export const HrTipsChart = styled.div`
   .donut-wrap {
     width: 200px;
     height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .donut-wrap svg,
+  .donut-wrap canvas {
+    width: 100%;
+    height: 100%;
   }
 
   .donut-wrap svg {
-    width: 100%;
     height: 100%;
   }
 `;
@@ -532,12 +628,38 @@ export const HrTipsLegend = styled.ul`
 export const HrTableWrap = styled.div`
   width: 100%;
   overflow-x: auto;
+  ${hrScrollbarStyles}
+  ${(props) =>
+    props.$empty
+      ? `
+    flex: 1;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+  `
+      : props.$stretch
+        ? `
+    flex: 1;
+  `
+        : ""}
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: #8391a1;
+    padding: 24px 12px;
+  }
 `;
 
 export const HrTable = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px;
+  min-width: ${(props) => props.$minWidth || "720px"};
 
   th {
     text-align: left;
@@ -591,7 +713,7 @@ export const HrPill = styled.span`
   padding: 2px 10px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   white-space: nowrap;
 
   ${(props) => {
@@ -603,15 +725,31 @@ export const HrPill = styled.span`
       case "late":
         return `background: #fdeceb; color: #d6453d;`;
       case "paid":
-        return `background: #e8f1fb; color: ${theme.color.secondary};`;
+        return `background: #0FB95C33; color: #10B981;`;
       case "unpaid":
         return `background: #fff1e8; color: #c45c26;`;
       case "casual":
         return `background: #eef6ff; color: #3b7ddd;`;
       case "pending":
         return `background: #e8f1fb; color: ${theme.color.secondary};`;
+      case "processed":
+        return `background: #DFECF9; color: #295086CC;`;
+      case "payroll-paid":
+        return `background: #e7f7ef; color: ${theme.color.lightGreen};`;
       case "approved":
         return `background: #e7f7ef; color: ${theme.color.lightGreen};`;
+      case "generated":
+        return `background: #10B98133; color: ${theme.color.lightGreen2};`;
+      case "card":
+        return `background: #D9F6FB; color: #12A6C0;`;
+      case "cash":
+        return `background: #D9F8E7; color: #10B981;`;
+      case "withdrawn":
+        return `background: #F1F3F6; color: #8391A1;`;
+      case "available":
+        return `background: #D9F8E7; color: #10B981;`;
+      case "withdraw-processed":
+        return `background: #E8F9DF; color: #328629CC;`;
       case "rejected":
         return `background: #fdeceb; color: #d6453d;`;
       case "active":
@@ -629,20 +767,25 @@ export const HrPill = styled.span`
 export const HrActionButtons = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 
   button {
     appearance: none;
-    border-radius: 8px;
+    border-radius: 50%;
     border: none;
-    background: ${theme.color.white};
+    background: transparent;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     padding: 0;
+    width: 28px;
+    height: 28px;
+    line-height: 0;
 
-
+    svg {
+      display: block;
+    }
   }
 `;
 
@@ -694,10 +837,10 @@ export const HrDateField = styled.div`
   display: inline-flex;
   align-items: center;
   min-height: 42px;
-  min-width: 145px;
+  min-width: ${(props) => (props.$wide ? "170px" : "145px")};
   border-radius: 100px;
   border: 1px solid #d7e2ef;
-  background: ${theme.color.white};
+  background: none;
 
   .react-datepicker-wrapper {
     width: 100%;
@@ -716,12 +859,45 @@ export const HrDateField = styled.div`
     min-height: 42px;
     border: none;
     background: transparent;
-    padding: 0 42px 0 14px;
+    padding: 0 ${(props) => (props.$clearable ? "58px" : "42px")} 0 14px;
     font-size: 13px;
     font-weight: 500;
     color: ${theme.color.secondary};
     outline: none;
     cursor: pointer;
+     &::placeholder {
+      color: ${theme.color.secondary} !important;
+    }
+  }
+
+  .clear-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    position: absolute;
+    right: 34px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: ${theme.color.grayv2};
+    z-index: 2;
+    line-height: 0;
+
+    &:hover {
+      color: #e32c1f;
+    }
+
+    svg {
+      display: block;
+      width: 12px;
+      height: 12px;
+    }
   }
 
   .field-icon {
@@ -784,7 +960,7 @@ export const HrStatCard = styled.div`
 `;
 
 export const HrTableCard = styled.div`
-  background: ${theme.color.white};
+  background: none;
   border: 1px solid #e8eef6;
   border-radius: 14px;
   padding: 20px;
@@ -800,6 +976,8 @@ export const HrModalOverlay = styled.div`
   align-items: center;
   justify-content: center;
   padding: 24px;
+  overflow: hidden;
+  overscroll-behavior: contain;
 `;
 
 export const HrModalCard = styled.div`
@@ -807,11 +985,13 @@ export const HrModalCard = styled.div`
   max-width: ${(props) => (props.$wide ? "720px" : "560px")};
   max-height: calc(100vh - 48px);
   overflow: auto;
+  overscroll-behavior: contain;
   background: ${theme.color.white};
   border-radius: 16px;
   padding: 28px 28px 24px;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
   position: relative;
+  ${hrScrollbarStyles}
 `;
 
 export const HrModalHeader = styled.div`
@@ -846,8 +1026,13 @@ export const HrModalClose = styled.button`
   cursor: pointer;
   color: #e11d48;
   padding: 0;
+  line-height: 0;
 
-
+  svg {
+    display: block;
+    width: 24px;
+    height: 24px;
+  }
 `;
 
 export const HrModalForm = styled.form`
@@ -893,6 +1078,132 @@ export const HrField = styled.label`
     z-index: 30;
   }
 
+  .react-datepicker-popper.hr-datepicker-portal-popper {
+    z-index: 9999;
+  }
+
+  .hr-phone-input {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    border: 1px solid #d7e2ef;
+    background: ${theme.color.white};
+    border-radius: 100px;
+    min-height: 48px;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+
+    &:focus-within {
+      border-color: ${theme.color.secondary};
+    }
+
+    .phone-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      flex-shrink: 0;
+      padding-left: 8px;
+
+      img {
+        width: 18px;
+        height: 18px;
+        object-fit: contain;
+      }
+    }
+
+    .country-code {
+      width: 35px;
+      flex-shrink: 0;
+
+      input {
+        width: 100%;
+        min-height: 46px;
+        border: none !important;
+        border-radius: 0 !important;
+        padding: 12px 0 12px 16px !important;
+        background: transparent;
+        pointer-events: none;
+      }
+    }
+
+    .phone-digits {
+      flex: 1;
+      min-width: 0;
+
+      input {
+        width: 100%;
+        min-height: 46px;
+        border: none !important;
+        border-radius: 0 !important;
+        padding: 12px 20px 12px 8px !important;
+        background: transparent;
+      }
+    }
+
+    &:not(.has-value) .phone-digits input {
+      padding-left: 4px !important;
+    }
+  }
+
+  .phone-number-input-wrapper {
+    width: 100%;
+    display: block;
+
+    &.react-tel-input {
+      width: 100%;
+    }
+
+    .form-control {
+      width: 100% !important;
+      appearance: none;
+      border: 1px solid #d7e2ef !important;
+      background: ${theme.color.white} !important;
+      border-radius: 100px !important;
+      min-height: 48px !important;
+      height: 48px !important;
+      padding: 12px 20px 12px 52px !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      color: ${theme.color.secondary} !important;
+      outline: none !important;
+      box-shadow: none !important;
+
+      &::placeholder {
+        color: ${theme.color.secondary} !important;
+      }
+
+      &:focus {
+        border-color: ${theme.color.secondary} !important;
+      }
+    }
+
+    .flag-dropdown {
+      border: none !important;
+      background: transparent !important;
+      border-radius: 100px 0 0 100px !important;
+      padding-left: 8px;
+    }
+
+    .selected-flag {
+      background: transparent !important;
+      border-radius: 100px 0 0 100px !important;
+      padding-left: 12px !important;
+      width: 44px !important;
+
+      &:hover,
+      &:focus,
+      &.open {
+        background: transparent !important;
+      }
+    }
+
+    .country-list {
+      border-radius: 12px;
+      margin-top: 4px;
+    }
+  }
+
   .rdt {
     width: 100%;
     position: relative;
@@ -900,6 +1211,24 @@ export const HrField = styled.label`
 
   .rdtPicker {
     z-index: 40;
+  }
+
+  .rdt > input {
+    transition: none;
+  }
+
+  .rdt.rdtOpen > input,
+  .rdt > input:focus {
+    border-color: ${theme.color.secondary};
+    background: ${theme.color.white};
+    background-color: ${theme.color.white};
+    box-shadow: none;
+  }
+
+  .rdtPicker {
+    .rdtBtn {
+      user-select: none;
+    }
   }
 
   select,
@@ -910,9 +1239,10 @@ export const HrField = styled.label`
     appearance: none;
     border: 1px solid #d7e2ef;
     background: ${theme.color.white};
+    background-color: ${theme.color.white};
     border-radius: 100px;
     min-height: 48px;
-    padding: 12px 42px 12px 14px;
+    padding: 12px 42px 12px 20px;
     font-size: 14px;
     font-weight: 500;
     color: ${theme.color.secondary};
@@ -924,14 +1254,35 @@ export const HrField = styled.label`
     &::placeholder {
       color: ${theme.color.secondary} !important;
     }
+    &:disabled {
+      background-color: #f3f5f8 !important;
+      cursor: not-allowed;
+    }
+
+    &:focus,
+    &:active {
+      background: ${theme.color.white};
+      background-color: ${theme.color.white};
+    }
+
+    &:-webkit-autofill,
+    &:-webkit-autofill:hover,
+    &:-webkit-autofill:focus,
+    &:-webkit-autofill:active {
+      -webkit-text-fill-color: ${theme.color.secondary} !important;
+      caret-color: ${theme.color.secondary};
+      transition: background-color 99999s ease-in-out 0s;
+      box-shadow: 0 0 0 1000px ${theme.color.white} inset !important;
+      -webkit-box-shadow: 0 0 0 1000px ${theme.color.white} inset !important;
+    }
   }
 
   .error {
-    margin: 6px 0 0;
+    margin: 6px 0 0 15px;
     padding: 0 4px;
     font-size: 12px;
     font-weight: 500;
-    color: #e32c1f;
+    color: #DC3545;
     line-height: 1.3;
   }
 
@@ -953,6 +1304,26 @@ export const HrField = styled.label`
       width: 42px;
       height: 100%;
       cursor: pointer;
+    }
+  }
+
+  input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+    background: ${theme.color.white};
+    background-color: ${theme.color.white};
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    &:focus,
+    &:active,
+    &:hover {
+      background: ${theme.color.white};
+      background-color: ${theme.color.white};
     }
   }
 
@@ -987,12 +1358,16 @@ export const HrField = styled.label`
 
 export const HrSecondaryButton = styled.button`
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 44px;
   min-width: 120px;
   padding: 10px 28px;
   border-radius: 100px;
   border: 1.5px solid ${theme.color.secondary};
-  background: ${theme.color.white};
+  background: none;
   color: ${theme.color.secondary};
   font-size: 14px;
   font-weight: 600;
@@ -1004,6 +1379,47 @@ export const HrSecondaryButton = styled.button`
   &:hover {
     background: #f5f8fc;
   }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+export const HrFilterTabs = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  background: none;
+  border: 1px solid #d7e2ef;
+  border-radius: 100px;
+  max-width: 100%;
+`;
+
+export const HrFilterTab = styled.button`
+  appearance: none;
+  border: none;
+  background: ${(props) => (props.$active ? theme.color.secondary : "transparent")};
+  color: ${(props) => (props.$active ? theme.color.white : theme.color.secondary)};
+  min-height: 36px;
+  padding: 8px 18px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+
+`;
+
+export const HrHeaderOutlineButton = styled(HrSecondaryButton)`
+  min-height: 42px;
+  min-width: 0;
+  /* padding: 10px 18px; */
+  font-size: 12px;
+  font-weight: 500;
 `;
 
 export const HrModalPrimaryButton = styled(HrPrimaryButton)`
@@ -1089,8 +1505,14 @@ export const HrDangerButton = styled.button`
 
 export const HrConfirmModalCard = styled(HrModalCard)`
   max-width: 480px;
-  padding: 32px 28px 28px;
+  padding: 40px 28px 28px;
   text-align: center;
+
+  .confirm-close {
+    top: 14px;
+    right: 14px;
+    transform: none;
+  }
 
   .confirm-title {
     margin: 0 0 10px;
@@ -1098,7 +1520,7 @@ export const HrConfirmModalCard = styled(HrModalCard)`
     font-weight: 700;
     color: ${theme.color.secondary};
     line-height: 1.35;
-    padding-right: 28px;
+    padding: 0 24px;
   }
 
   .confirm-text {
@@ -1197,6 +1619,7 @@ export const HrDrawerBody = styled.div`
   flex-direction: column;
   gap: 20px;
   background: #F5FBFF;
+  ${hrScrollbarStyles}
 `;
 
 export const HrDrawerActions = styled.div`
@@ -1595,6 +2018,35 @@ export const HrEmployeeMeta = styled.div`
   .meta-contact {
     min-width: 0;
   }
+
+  .meta-contact-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+`;
+
+export const HrEmployeeCardActionButton = styled.button`
+  appearance: none;
+  flex-shrink: 0;
+  align-self: flex-end;
+  min-height: 34px;
+  padding: 8px 14px;
+  border-radius: 100px;
+  border: 1.5px solid ${theme.color.secondary};
+  background: ${theme.color.white};
+  color: ${theme.color.secondary};
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: #f5f8fc;
+  }
 `;
 
 export const HrEmployeeMetaItem = styled.div`
@@ -1635,4 +2087,335 @@ export const HrEmptyState = styled.div`
   color: ${theme.color.grayv2};
   font-size: 14px;
   font-weight: 500;
+`;
+
+export const HrTipTherapistCard = styled.article`
+  background: ${theme.color.white};
+  border: 1px solid #e8eef6;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(41, 80, 134, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+`;
+
+export const HrTipTherapistHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .tip-name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: ${theme.color.secondary};
+    line-height: 1.25;
+  }
+
+  .tip-count {
+    margin: 4px 0 0;
+    font-size: 14px;
+    font-weight: 400;
+    color: ${theme.color.secondary};
+    line-height: 1.3;
+  }
+`;
+
+export const HrTipTherapistStats = styled.div`
+  display: flex;
+  flex-direction: column;
+
+  .tip-stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #eef2f7;
+  }
+
+  .tip-stat-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .tip-stat-row:first-child {
+    padding-top: 0;
+  }
+
+  .tip-stat-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: ${theme.color.secondary};
+  }
+
+  .tip-stat-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: ${theme.color.secondary};
+  }
+`;
+
+export const HrSettingsSection = styled.div`
+  background: ${theme.color.white};
+  border: 1px solid #e8eef6;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(41, 80, 134, 0.04);
+  margin-bottom: 16px;
+
+  .section-title {
+    margin: 0 0 14px;
+    font-size: 14px;
+    font-weight: 700;
+    color: ${theme.color.secondary};
+  }
+`;
+
+export const HrSettingsFields = styled.div`
+  .settings-row {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .settings-row:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .settings-field {
+    .field-label {
+      display: block;
+      margin: 0 0 6px 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: ${theme.color.secondary};
+      line-height: 1.2;
+    }
+
+    .field-control {
+      position: relative;
+      width: 100%;
+    }
+
+    select,
+    input,
+    .rdt > input {
+      min-height: 40px;
+      padding: 9px 36px 9px 12px;
+      font-size: 12px;
+      border-color: #e3ebf5;
+    }
+
+    .field-icon {
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      color: #295086;
+    }
+  }
+`;
+
+export const HrToggleCard = styled.div`
+  background: #f5f9ff;
+  border-radius: 12px;
+  padding: 13px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  .toggle-title {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: ${theme.color.secondary};
+  }
+
+  .toggle-description {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: ${theme.color.grayv2};
+  }
+`;
+
+export const HrToggleList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+export const HrSwitch = styled.button`
+  appearance: none;
+  border: none;
+  width: 38px;
+  height: 20px;
+  border-radius: 999px;
+  background: ${(props) => (props.$active ? "#295086" : "#c9d8ea")};
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: ${(props) => (props.$active ? "20px" : "2px")};
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    transition: left 0.15s ease;
+  }
+`;
+
+export const HrRadioCard = styled.label`
+  background: #f5f9ff;
+  border-radius: 12px;
+  padding: 13px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  cursor: pointer;
+  position: relative;
+  border: 1px solid ${(props) => (props.$active ? "#295086" : "transparent")};
+  transition: border-color 0.15s ease;
+
+  .toggle-title {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: ${theme.color.secondary};
+  }
+
+  .toggle-description {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: ${theme.color.grayv2};
+  }
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+`;
+
+export const HrRadioMark = styled.span`
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid ${(props) => (props.$active ? "#295086" : "#c9d8ea")};
+  background: ${theme.color.white};
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease;
+
+  &::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: ${(props) => (props.$active ? "#295086" : "transparent")};
+    transition: background 0.15s ease;
+  }
+`;
+
+export const HrSlipModalCard = styled(HrModalCard)`
+  max-width: 520px;
+  padding: 28px 28px 24px;
+`;
+
+export const HrSlipSummaryBox = styled.div`
+  background: #eaf3fb;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .summary-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .summary-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: ${theme.color.secondary};
+  }
+
+  .summary-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: ${theme.color.secondary};
+    text-align: right;
+  }
+`;
+
+export const HrSlipDetailList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+
+  .detail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .detail-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: ${theme.color.secondary};
+  }
+
+  .detail-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: ${theme.color.secondary};
+  }
+
+  .detail-row.is-deduction .detail-label,
+  .detail-row.is-deduction .detail-value {
+    color: #e32c1f;
+  }
+`;
+
+export const HrSlipTotalRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e8eef6;
+  margin-bottom: 22px;
+
+  .total-label,
+  .total-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: ${theme.color.secondary};
+  }
+`;
+
+export const HrSlipExportButton = styled(HrPrimaryButton)`
+  width: 100%;
+  justify-content: center;
+  min-height: 46px;
+  font-size: 14px;
+  font-weight: 600;
 `;

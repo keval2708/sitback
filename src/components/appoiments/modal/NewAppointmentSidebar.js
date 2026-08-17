@@ -1107,8 +1107,8 @@ const NewAppointmentSidebar = ({
                     {employeeSlots.map((slot, index) => {
                       const timeValStr = typeof slot === "string" ? slot : slot.time;
                       const isSelected = selectedTime && moment(selectedTime).format("HH:mm") === moment(timeValStr, ["hh:mm A", "hh:mm:ss a", "hh:mm:ss A", "hh:mm a"]).format("HH:mm");
-                      console.log("isSelected", isSelected);
-                      console.log("selectedDate", selectedDate);
+                      // console.log("isSelected", isSelected);
+                      // console.log("selectedDate", selectedDate);
 
                       return (
                         <SlotChipButton

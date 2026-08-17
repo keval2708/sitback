@@ -35,7 +35,7 @@ import {
 import { Info_icon } from "@/styles/svgs";
 import axiosApiCall from "@/utils/axios";
 import { TOAST_ALERTS, TOAST_TYPES } from "@/utils/constants";
-const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
+const BankDetailModal = ({ lgShow, setLgShow, cardData, employee = null, onSuccess }) => {
   //hooks
   const { t } = useTranslation();
   const { toaster } = useToaster();
@@ -43,7 +43,6 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
   const { isPaymentTab } = useSelector(appointmentCheckSliceSelector);
   const { subscriptionPayment } = useSelector(appointmentCheckSliceSelector);
   const dispatch = useDispatch();
-  const formData = new FormData();
   const stripePromise = loadStripe(process.env.STRIPE_SECRET_KEY);
   const [selectedDate, setSelectedDate] = useState("");
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
@@ -99,12 +98,15 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
     const params = {
       country: "US",
       currency: "usd",
-      account_holder_name: login?.username,
+      account_holder_name: employee?.name || login?.username,
       account_holder_type: Data?.accountType,
       routing_number: Data?.routingNumber?.trim(),
       account_number: Data?.accountNumber?.trim(),
-      birthday: moment(formData?.birthDate).format("YYYY-MM-DD"),
+      birthday: moment(Data?.birthDate).format("YYYY-MM-DD"),
     };
+    if (employee?.id != null) {
+      params.employeeId = employee.id;
+    }
     try {
       setLoading(true);
       const res = await axiosApiCall.post(API_ROUTER?.CRATE_ACCOUNT, params);
@@ -137,22 +139,30 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
   };
 
   const createStripeAccount = async (token, Data) => {
-    formData?.append("payout_method", "bank");
-    formData?.append("email", login?.email);
-    formData?.append("bank_name", Data?.bankName?.trim());
-    formData?.append("first_name", Data?.firstName?.trim());
-    formData?.append("last_name", Data?.lastName)?.trim();
-    formData?.append("date_of_birth", moment(Data?.birthDate).format("YYYY-MM-DD"));
-    formData?.append("address_line_1", Data?.address?.trim());
-    formData?.append("city", Data?.city?.trim());
-    formData?.append("state", Data?.state?.trim());
-    formData?.append("zip_code", Data?.pinCode?.trim());
-    formData?.append("btok_us_verified", token);
-    formData?.append("document_front_image", Data?.frontImage);
-    formData?.append("document_back_image", Data?.backImage);
+    const formData = new FormData();
+    formData.append("payout_method", "bank");
+    formData.append("email", employee?.email || login?.email);
+    if (employee?.id != null) {
+      formData.append("employeeId", employee.id);
+    }
+    formData.append("bank_name", Data?.bankName?.trim());
+    formData.append("first_name", Data?.firstName?.trim());
+    formData.append("last_name", Data?.lastName?.trim());
+    formData.append("date_of_birth", moment(Data?.birthDate).format("YYYY-MM-DD"));
+    formData.append("address_line_1", Data?.address?.trim());
+    formData.append("city", Data?.city?.trim());
+    formData.append("state", Data?.state?.trim());
+    formData.append("zip_code", Data?.pinCode?.trim());
+    formData.append("btok_us_verified", token);
+    formData.append("document_front_image", Data?.frontImage);
+    formData.append("document_back_image", Data?.backImage);
+
+    const stripeAccountApi = employee?.id
+      ? API_ROUTER?.CREATE_EMPLOYEE_STRIPE_ACCOUNT
+      : API_ROUTER?.CREATE_STRIPE_ACCOUNT;
 
     try {
-      const res = await axiosApiCall.post(API_ROUTER?.CREATE_STRIPE_ACCOUNT, formData, {
+      const res = await axiosApiCall.post(stripeAccountApi, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -166,6 +176,7 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
       } else {
         toaster(res?.data?.message, TOAST_TYPES.SUCCESS);
         cancel();
+        onSuccess?.();
       }
     } catch (error) {
       toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
@@ -435,6 +446,14 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
   };
 
   useEffect(() => {
+    if (!lgShow || !employee?.name) return;
+
+    const nameParts = employee.name.trim().split(/\s+/);
+    setValue("firstName", nameParts[0] || "");
+    setValue("lastName", nameParts.slice(1).join(" ") || "");
+  }, [employee, lgShow, setValue]);
+
+  useEffect(() => {
     setSelectedDate();
     const handleClickOutside = (event) => {
       if (calendarRef.current && !calendarRef.current.contains(event.target)) {
@@ -478,60 +497,60 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
       <Modal.Body className="stripe-card">
         <SitBackModalBodyWrapper className="p-0">
           <h3 className="modal-title-text" style={{ marginTop: "-30px" }}>
-            Add bank details
+            Add Bank Details
           </h3>
           <Form onSubmit={handleSubmit(onSubmitForm)}>
             <FormGroup controlId="formBasicEmail">
               <Row>
                 <Col col={6}>
                   <div>
-                    <Label>{t("firstName")}</Label>
+                    <Label>First Name</Label>
                     <Input type="text" {...register("firstName")} placeholder="Will" />
-                    <p className="text-danger">{errors.firstName?.message}</p>
+                    <p className="text-danger mt-1">{errors.firstName?.message}</p>
                   </div>
                 </Col>
                 <Col col={6}>
                   <div>
-                    <Label>{t("lastName")}</Label>
+                    <Label>Last Name</Label>
                     <Input type="text" {...register("lastName")} placeholder="Smith" />
-                    <p className="text-danger">{errors.lastName?.message}</p>
+                    <p className="text-danger mt-1">{errors.lastName?.message}</p>
                   </div>
                 </Col>
               </Row>
             </FormGroup>
             <FormGroup controlId="formBasicEmail">
-              <Label>{t("bankName1")}</Label>
+              <Label>Bank Name</Label>
               <Input type="text" {...register("bankName")} placeholder="Wells Fargo" />
-              <p className="text-danger">{errors.bankName?.message}</p>
+              <p className="text-danger mt-1">{errors.bankName?.message}</p>
             </FormGroup>
             <FormGroup controlId="formBasicEmail">
-              <Label>{t("accNumber")}</Label>
+              <Label>Account Number</Label>
               <Input
                 type="text"
                 {...register("accountNumber")}
                 placeholder="0000 - 0000 - 0000 - 0000"
               />
-              <p className="text-danger">{errors.accountNumber?.message}</p>
+              <p className="text-danger mt-1 mt-1">{errors.accountNumber?.message}</p>
             </FormGroup>
             <FormGroup controlId="formBasicEmail">
-              <Label>{t("routingNum")}</Label>
+              <Label>Routing Number</Label>
               <Input
                 type="text"
                 {...register("routingNumber")}
                 placeholder="0000 - 0000 - 0000 - 0000"
               />
-              <p className="text-danger">{errors.routingNumber?.message}</p>
+              <p className="text-danger mt-1">{errors.routingNumber?.message}</p>
             </FormGroup>
             <div className="account-section">
               <Row>
                 <Col col={6}>
                   <FormGroup className="mb-0">
-                    <Label>{t("accType")}</Label>
+                    <Label>Account Type</Label>
                     <Select {...register("accountType")} aria-label="Default select example">
                       <option value="company">{t("company")}</option>
                       <option value="individual">{t("individual")}</option>
                     </Select>
-                    <p className="text-danger">{errors.accountType?.message}</p>
+                    <p className="text-danger mt-1">{errors.accountType?.message}</p>
                   </FormGroup>
                 </Col>
                 <Col col={6}>
@@ -539,7 +558,7 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
                     className={`white-input-wrapper mb-0 ${isCalendarVisible ? "show-calendar" : ""
                       }`}
                   >
-                    <Label className="birthday">{t("birthDay")}</Label>
+                    <Label className="birthday">Birthday</Label>
                     <Input
                       type="text"
                       placeholder="Select birth date"
@@ -569,13 +588,13 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
                         />
                       )}
                     </div>
-                    <p className="text-danger">{errors?.birthDate?.message}</p>
+                    <p className="text-danger mt-1">{errors?.birthDate?.message}</p>
                   </FormGroup>
                 </Col>
               </Row>
             </div>
             <FormGroup controlId="formBasicEmail">
-              <Label>{t("address")}</Label>
+              <Label>Address</Label>
               <Input as="textarea" rows={2} {...register("address")} placeholder="Address" />
               <p className="text-danger">{errors.address?.message}</p>
             </FormGroup>
@@ -584,21 +603,21 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
                 <div>
                   <Label>{t("city")}</Label>
                   <Input type="text" placeholder="City" {...register("city")} />
-                  <p className="text-danger">{errors.city?.message}</p>
+                  <p className="text-danger mt-1" style={{ fontSize: "12px" }}>{errors.city?.message}</p>
                 </div>
               </Col>
               <Col sm={4}>
                 <div>
-                  <Label>{t("state")}</Label>
+                  <Label>State</Label>
                   <Input type="text" placeholder="State" {...register("state")} />
-                  <p className="text-danger">{errors.state?.message}</p>
+                  <p className="text-danger mt-1" style={{ fontSize: "12px" }}>{errors.state?.message}</p>
                 </div>
               </Col>
               <Col sm={4}>
                 <div>
-                  <Label>{t("zipCodeBank")}</Label>
+                  <Label>Zip Code</Label>
                   <Input type="number" placeholder="Zip-code" {...register("pinCode")} />
-                  <p className="text-danger">{errors.pinCode?.message}</p>
+                  <p className="text-danger mt-1" style={{ fontSize: "12px" }}>{errors.pinCode?.message}</p>
                 </div>
               </Col>
             </Row>
@@ -634,7 +653,7 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
               <Row>
                 <Col sm={6}>
                   <div className="upload-file-input-wrapper">
-                    <Label>{t("fImg")}</Label>
+                    <Label>Front Image</Label>
                     <div className="upload-file-input">
                       <input
                         type="file"
@@ -648,12 +667,12 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
                       />
                       {!UploadedFirstImage?.preview && <p>{t("dragFile")}</p>}
                     </div>
-                    <p className="text-danger">{errors.frontImage?.message}</p>
+                    <p className="text-danger mt-1" style={{ fontSize: "12px" }}>{errors.frontImage?.message}</p>
                   </div>
                 </Col>
                 <Col col={6}>
                   <div className="upload-file-input-wrapper">
-                    <Label>{t("bImg")}</Label>
+                    <Label>Back Image</Label>
                     <div className="upload-file-input">
                       <input
                         type="file"
@@ -667,7 +686,7 @@ const BankDetailModal = ({ lgShow, setLgShow, cardData }) => {
                       />
                       {!UploadedBackImage?.preview && <p>{t("dragFile")}</p>}
                     </div>
-                    <p className="text-danger">{errors.backImage?.message}</p>
+                    <p className="text-danger" style={{ fontSize: "12px" }}>{errors.backImage?.message}</p>
                   </div>
                 </Col>
               </Row>

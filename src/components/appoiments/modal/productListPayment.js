@@ -2,9 +2,10 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { Col, Modal, Row } from "react-bootstrap";
 import { useTranslation } from "react-i18next";
+import Skeleton from "react-loading-skeleton";
+import "react-loading-skeleton/dist/skeleton.css";
 import { useDispatch } from "react-redux";
 import LoadingButton from "@/components/shared/button/LoadingButton";
-import Loader from "@/components/shared/spinner/loader";
 import { useToaster } from "@/hooks";
 import { handleCalender } from "@/redux/messageTab";
 import { API_ROUTER } from "@/services/apiRouter";
@@ -24,7 +25,7 @@ const productListPayment = ({
 
   // State
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadingBtn, setLoadingBtn] = useState(false);
   const [searchProduct, setSearchProduct] = useState("");
   const [oldProductData, setOldProductData] = useState("");
@@ -32,6 +33,7 @@ const productListPayment = ({
   const [finalProducts, setFinalProducts] = useState([]); // To store final array with selected products and count
   const [totalProduct, setTotalProduct] = useState(0);
   const [errorMsg, setErrorMsg] = useState([]);
+  const [hasFetched, setHasFetched] = useState(false);
 
   // Hooks
   const { toaster } = useToaster();
@@ -40,35 +42,41 @@ const productListPayment = ({
 
   // Fetch product list
   const GetProduct = async (load = true) => {
-    if (data) {
-      try {
-        setLoading(load);
-        let params = {
-          booking_id: selectedData?.id,
-          booking_type: data?.type,
-          user_id: data?.user_id,
-        };
+    if (!data) return;
 
-        const res = await axiosApiCall.post(API_ROUTER?.PRODUCT_LIST_BOOKING, params);
-        console.log("productListPayment",res?.data?.data);
-        if (!res?.data?.status) {
-          return toaster(res?.message, TOAST_TYPES.ERROR);
-        } else {
-          setTotalProduct(res?.data?.tempItemCount);
-          setProducts(res?.data?.data);
-          setOldProductData(res?.data?.data);
-        }
-      } catch (error) {
-        toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
-      } finally {
-        setLoading(false);
+    try {
+      setLoading(load);
+      const params = {
+        booking_id: selectedData?.id,
+        booking_type: data?.type,
+        user_id: data?.user_id,
+      };
+
+      const res = await axiosApiCall.post(API_ROUTER?.PRODUCT_LIST_BOOKING, params);
+      if (!res?.data?.status) {
+        setProducts([]);
+        setOldProductData([]);
+        setTotalProduct(0);
+        return;
       }
+
+      const rows = Array.isArray(res?.data?.data) ? res.data.data : [];
+      setTotalProduct(res?.data?.tempItemCount ?? 0);
+      setProducts(rows);
+      setOldProductData(rows);
+    } catch (error) {
+      setProducts([]);
+      setOldProductData([]);
+      setTotalProduct(0);
+    } finally {
+      setLoading(false);
+      setHasFetched(true);
     }
   };
 
   // Filter products based on search input
-  const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(searchProduct.toLowerCase())
+  const filteredProducts = (Array.isArray(products) ? products : []).filter((product) =>
+    (product?.name || "").toLowerCase().includes(searchProduct.toLowerCase())
   );
 
   // Handle product count (increment or decrement)
@@ -107,6 +115,8 @@ const productListPayment = ({
     setOldProductData([]);
     setErrorMsg([]);
     setFinalProducts([]); // Reset final product array
+    setLoading(true);
+    setHasFetched(false);
     dispatch(handleCalender(true));
   };
 
@@ -202,9 +212,16 @@ const productListPayment = ({
 
   useEffect(() => {
     if (show) {
+      setLoading(true);
+      setHasFetched(false);
+      setProducts([]);
       GetProduct();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
+
+  // Show skeleton until the first fetch for this open completes — never flash empty state
+  const showSkeleton = loading || !hasFetched;
 
   return (
     <Modal
@@ -218,7 +235,6 @@ const productListPayment = ({
       <Modal.Header closeButton className="red-close-icon"></Modal.Header>
       <Modal.Body>
         <ProductListLayoutWrapper>
-          <Loader loading={loading} />
           <div className="product_list">
             <div className="Product_header">
               <div className="search_box">
@@ -235,7 +251,7 @@ const productListPayment = ({
               <div className="addbtn">
                 <LoadingButton
                   // type="submit"
-                  disabled={loadingBtn}
+                  disabled={loadingBtn || showSkeleton}
                   label={t("addToCart")}
                   loadinglabel={t("addToCart")}
                   isLoading={loadingBtn}
@@ -254,8 +270,26 @@ const productListPayment = ({
             </div>
             <div className="product_card">
               <Row>
-                {loading ? (
-                  <></> // Empty fragment while loading, so the message does not display
+                {showSkeleton ? (
+                  Array.from({ length: 8 }).map((_, index) => (
+                    <Col md={6} lg={4} xl={3} key={`skeleton-${index}`}>
+                      <div className="product_card_box" style={{ cursor: "default", pointerEvents: "none" }}>
+                        <div className="product_img">
+                          <Skeleton height={176} borderRadius={8} />
+                        </div>
+                        <div className="product-wrapper-div">
+                          <div className="product_detail">
+                            <Skeleton width="75%" height={18} style={{ marginBottom: 8 }} />
+                            <div className="product_price_row">
+                              <Skeleton width={60} height={16} />
+                              <Skeleton width={50} height={14} />
+                            </div>
+                          </div>
+                          <Skeleton width={110} height={32} borderRadius={20} />
+                        </div>
+                      </div>
+                    </Col>
+                  ))
                 ) : filteredProducts.length > 0 ? (
                   filteredProducts.map((product, index) => {
                     const remainStock = Number(product?.remainstock ?? 0);

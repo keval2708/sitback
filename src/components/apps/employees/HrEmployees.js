@@ -1,14 +1,20 @@
 "use client";
 
 import moment from "moment";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Skeleton from "react-loading-skeleton";
+import "react-loading-skeleton/dist/skeleton.css";
 import InlineSVG from "svg-inline-react";
 import AddEmployeeModal from "@/components/apps/employees/AddEmployeeModal";
 import DeleteEmployeeModal from "@/components/apps/employees/DeleteEmployeeModal";
 import EmployeeDetailsSidebar from "@/components/apps/employees/EmployeeDetailsSidebar";
+import BankDetailModal from "@/components/insights/modal/BankDetailModal";
+import { useToaster } from "@/hooks";
+import { API_ROUTER } from "@/services/apiRouter";
 import {
   HrAvatar,
   HrEmployeeCard,
+  HrEmployeeCardActionButton,
   HrEmployeeCardHeader,
   HrEmployeeGrid,
   HrEmployeeInfo,
@@ -26,6 +32,8 @@ import {
   HrStatCard,
   HrToolbar,
 } from "@/styles/pages/hr-module.style";
+import axiosApiCall from "@/utils/axios";
+import { TOAST_ALERTS, TOAST_TYPES } from "@/utils/constants";
 
 const PLUS_ICON = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.33333 5.33333H5.33333V9.33333H4V5.33333H0V4H4V0H5.33333V4H9.33333V5.33333Z" fill="white"/></svg>`;
 const SEARCH_ICON = `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -56,184 +64,283 @@ const STAT_ICONS = {
 `,
 };
 
-const DEFAULT_PERMISSIONS = [
-  "View Dashboard",
-  "Approve Leaves",
-  "Manage Attendance",
-];
-
-const DEFAULT_LEAVE = [
-  { label: "Approved (days)", value: 6 },
-  { label: "Approved (days)", value: 6 },
-  { label: "Approved (days)", value: 6 },
-];
-
-const createEmployee = (data) => ({
-  phone: "+1-555-0101",
-  emergencyContact: "281-444-3289",
-  address: "123 Harbor Street, Philadelphia, PA",
-  bankAccount: "PKBAL03321004798563",
-  salaryType: "Monthly",
-  totalTips: 565,
-  availableTips: 0,
-  permissions: DEFAULT_PERMISSIONS,
-  leaveBalances: DEFAULT_LEAVE,
-  latestPayroll: {
-    startDate: "2026-07-25",
-    endDate: "2026-07-27",
-    status: "Processed",
-    workingDays: 0,
-    overtimeHrs: 0,
-    amount: data.monthly || 0,
-  },
-  ...data,
-});
-
-const INITIAL_EMPLOYEES = [
-  createEmployee({
-    id: "jr",
-    name: "James Rodriguez",
-    initial: "J",
-    role: "Therapist",
-    status: "active",
-    statusLabel: "Active",
-    monthly: 80,
-    joined: "Nov 2024",
-    joiningDate: "2024-11-01",
-    email: "james@example.com",
-  }),
-  createEmployee({
-    id: "sj",
-    name: "Sarah Johnson",
-    initial: "S",
-    role: "Therapist",
-    status: "active",
-    statusLabel: "Active",
-    monthly: 3500,
-    joined: "Nov 2024",
-    joiningDate: "2024-01-15",
-    email: "sarah@example.com",
-    totalTips: 565,
-    latestPayroll: {
-      startDate: "2026-07-25",
-      endDate: "2026-07-27",
-      status: "Processed",
-      workingDays: 0,
-      overtimeHrs: 0,
-      amount: 3500,
-    },
-  }),
-  createEmployee({
-    id: "mc",
-    name: "Michael Chen",
-    initial: "M",
-    role: "Receptionist",
-    status: "active",
-    statusLabel: "Active",
-    monthly: 2800,
-    joined: "Nov 2024",
-    joiningDate: "2024-11-10",
-    email: "michael@example.com",
-    totalTips: 120,
-  }),
-  createEmployee({
-    id: "om",
-    name: "Olivia Martinez",
-    initial: "O",
-    role: "Therapist",
-    status: "active",
-    statusLabel: "Active",
-    monthly: 3600,
-    joined: "Nov 2024",
-    joiningDate: "2024-11-05",
-    email: "olivia@example.com",
-    totalTips: 410,
-  }),
-  createEmployee({
-    id: "la",
-    name: "Lisa Anderson",
-    initial: "L",
-    role: "Manager",
-    status: "active",
-    statusLabel: "Active",
-    monthly: 5200,
-    joined: "Jun 2022",
-    joiningDate: "2022-06-01",
-    email: "lisa@example.com",
-    totalTips: 0,
-  }),
-  createEmployee({
-    id: "ew",
-    name: "Emma Wilson",
-    initial: "E",
-    role: "Therapist",
-    status: "active",
-    statusLabel: "Active",
-    monthly: 3800,
-    joined: "Aug 2023",
-    joiningDate: "2023-08-12",
-    email: "emma@example.com",
-    totalTips: 290,
-  }),
-];
-
-const ROLE_OPTIONS = ["All Roles", "Therapist", "Receptionist", "Manager"];
-
 const STATUS_LABELS = {
   active: "Active",
   onleave: "On Leave",
+  onLeave: "On Leave",
   inactive: "Inactive",
 };
 
 const formatCurrency = (value) =>
   `$${Number(value || 0).toLocaleString("en-US")}`;
 
-const mapFormToEmployee = (form, existing = null) => {
-  const name = form.fullName.trim();
-  const status = form.employmentStatus || "active";
-  const monthly = Number(form.monthlySalary || 0);
-
-  return createEmployee({
-    ...(existing || {}),
-    id: existing?.id || `emp-${Date.now()}`,
-    name,
-    initial: name.charAt(0).toUpperCase(),
-    role: form.role,
-    status,
-    statusLabel: STATUS_LABELS[status] || "Active",
-    monthly,
-    joined: form.joiningDate
-      ? moment(form.joiningDate).format("MMM YYYY")
-      : existing?.joined || "",
-    joiningDate: form.joiningDate,
-    email: form.email.trim(),
-    phone: form.phone,
-    emergencyContact: form.emergencyContact,
-    address: form.address,
-    bankAccount: form.bankAccount,
-    salaryType: form.salaryType || "Monthly",
-    permissions: form.permissions || [],
-    latestPayroll: {
-      ...(existing?.latestPayroll || {
-        startDate: "2026-07-25",
-        endDate: "2026-07-27",
-        status: "Processed",
-        workingDays: 0,
-        overtimeHrs: 0,
-      }),
-      amount: monthly,
-    },
-  });
+const extractRows = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.list)) return payload.list;
+  if (Array.isArray(payload?.rows)) return payload.rows;
+  if (Array.isArray(payload?.employees)) return payload.employees;
+  if (Array.isArray(payload?.roles)) return payload.roles;
+  return [];
 };
 
+const mapRoleOption = (item = {}) => {
+  const id = item.id ?? item._id ?? item.roleId ?? item.value;
+  const name = item.name ?? item.roleName ?? item.label ?? item.title ?? "";
+  if (id == null || !name) return null;
+  return { id: String(id), name: String(name) };
+};
+
+const normalizeStatus = (value) => {
+  const raw = String(value || "active").trim();
+  const key = raw.toLowerCase().replace(/\s+/g, "");
+  if (key === "onleave") return "onleave";
+  if (key === "inactive") return "inactive";
+  if (key === "active") return "active";
+  return raw || "active";
+};
+
+const normalizeLatestPayroll = (payroll, monthly = 0) => {
+  const source =
+    payroll && typeof payroll === "object" && !Array.isArray(payroll)
+      ? payroll
+      : {};
+
+  return {
+    startDate:
+      source.startDate ||
+      source.start_date ||
+      source.fromDate ||
+      source.from_date ||
+      source.payrollStartDate ||
+      source.payroll_start_date ||
+      source.start ||
+      "",
+    endDate:
+      source.endDate ||
+      source.end_date ||
+      source.toDate ||
+      source.to_date ||
+      source.payrollEndDate ||
+      source.payroll_end_date ||
+      source.end ||
+      "",
+    status: source.status || source.payrollStatus || source.payroll_status || "",
+    workingDays: Number(
+      source.workingDays ?? source.working_days ?? source.workingDay ?? 0
+    ),
+    overtimeHrs: Number(
+      source.overtimeHrs ??
+        source.overtime_hrs ??
+        source.overtimeHours ??
+        source.overtime ??
+        0
+    ),
+    amount: Number(
+      source.amount ?? source.totalAmount ?? source.total_amount ?? monthly ?? 0
+    ),
+  };
+};
+
+const normalizeEmployee = (item = {}) => {
+  const name =
+    item.name ||
+    item.fullName ||
+    [item.firstName, item.lastName].filter(Boolean).join(" ") ||
+    "";
+  const status = normalizeStatus(
+    item.employmentStatus ?? item.status ?? item.employeeStatus
+  );
+  const joiningDate =
+    item.joiningDate || item.joinDate || item.joinedDate || "";
+  const roleName =
+    (typeof item.role === "object" ? item.role?.name : item.role) ||
+    item.roleName ||
+    "";
+  const roleId =
+    item.roleId ??
+    (typeof item.role === "object" ? item.role?.id : null) ??
+    null;
+  const salaryType = String(item.salaryType || "")
+    .trim()
+    .toLowerCase();
+  const salary = Number(
+    item.salary ??
+      (salaryType === "hourly"
+        ? item.hourlySalary ?? item.hourly
+        : item.monthlySalary ?? item.monthly) ??
+      0
+  );
+  const monthly = salary;
+  const hourlySalary = salaryType === "hourly" ? salary : Number(item.hourlySalary ?? item.hourly ?? 0);
+
+  return {
+    id: item.id ?? item._id ?? item.employeeId,
+    name,
+    firstName: item.firstName || item.first_name || "",
+    lastName: item.lastName || item.last_name || "",
+    gender: item.gender || "",
+    initial: name ? name.charAt(0).toUpperCase() : "?",
+    role: roleName,
+    roleId: roleId != null ? String(roleId) : "",
+    status,
+    statusLabel: STATUS_LABELS[status] || status,
+    monthly,
+    salary,
+    hourlySalary,
+    hourly: hourlySalary,
+    joined: joiningDate
+      ? moment(joiningDate).isValid()
+        ? moment(joiningDate).format("MMM YYYY")
+        : joiningDate
+      : item.joined || "",
+    joiningDate,
+    email: item.email || "",
+    phone: item.phone || item.phoneNumber || "",
+    countrycode: item.countrycode || item.countryCode || "",
+    emergencyContact: item.emergencyContact || "",
+    emergencyCountrycode:
+      item.emergencyCountrycode || item.emergencyCountryCode || "",
+    address: item.address || "",
+    salaryType,
+    permissions: Array.isArray(item.permissions)
+      ? item.permissions.map((p) =>
+          typeof p === "object" ? p.name || p.label || String(p.id) : String(p)
+        )
+      : [],
+    permissionIds: Array.isArray(item.permissions)
+      ? item.permissions
+          .map((p) => (typeof p === "object" ? p.id : p))
+          .filter((id) => id != null)
+          .map(String)
+      : Array.isArray(item.permissionIds)
+        ? item.permissionIds.map(String)
+        : [],
+    totalTips: Number(item.totalTips ?? 0),
+    availableTips: Number(item.availableTips ?? 0),
+    isBankDetailsAdded:
+      item.isBankDetailsAdded === true ||
+      item.isBankDetailsAdded === 1 ||
+      item.isBankDetailsAdded === "1" ||
+      item.isBankDetailsAdded === "true",
+    bankDetails: item.bankDetails || item.bank_details || null,
+    accountNumber:
+      item.bankDetails?.account_number ||
+      item.bank_details?.account_number ||
+      item.account_number ||
+      "",
+    leaveBalances: item.leaveBalances || item.leave_balances || [],
+    latestPayroll: normalizeLatestPayroll(
+      item.latestPayroll ||
+        item.latest_payroll ||
+        item.lastPayroll ||
+        item.last_payroll ||
+        item.payroll ||
+        {
+          startDate: item.payrollStartDate || item.payroll_start_date,
+          endDate: item.payrollEndDate || item.payroll_end_date,
+          status: item.payrollStatus || item.payroll_status,
+          workingDays: item.workingDays || item.working_days,
+          overtimeHrs: item.overtimeHrs || item.overtime_hrs,
+          amount: item.payrollAmount || item.payroll_amount,
+        },
+      monthly
+    ),
+    raw: item,
+  };
+};
+
+const EmployeeCardSkeleton = () => (
+  <HrEmployeeCard style={{ cursor: "default", pointerEvents: "none" }}>
+    <HrEmployeeCardHeader>
+      <Skeleton circle width={56} height={56} />
+      <HrEmployeeInfo style={{ flex: 1 }}>
+        <Skeleton width="70%" height={18} style={{ marginBottom: 8 }} />
+        <Skeleton width="45%" height={14} />
+      </HrEmployeeInfo>
+      <Skeleton width={70} height={28} borderRadius={999} />
+    </HrEmployeeCardHeader>
+    <HrEmployeeMeta>
+      <div className="meta-stats">
+        <HrEmployeeMetaItem>
+          <Skeleton width={50} height={12} style={{ marginBottom: 6 }} />
+          <Skeleton width={70} height={16} />
+        </HrEmployeeMetaItem>
+        <HrEmployeeMetaItem>
+          <Skeleton width={50} height={12} style={{ marginBottom: 6 }} />
+          <Skeleton width={70} height={16} />
+        </HrEmployeeMetaItem>
+      </div>
+      <HrEmployeeMetaItem className="meta-contact">
+        <Skeleton width={50} height={12} style={{ marginBottom: 6 }} />
+        <Skeleton width="80%" height={16} />
+      </HrEmployeeMetaItem>
+    </HrEmployeeMeta>
+  </HrEmployeeCard>
+);
+
 export default function HrEmployees() {
-  const [employees, setEmployees] = useState(INITIAL_EMPLOYEES);
+  const [employees, setEmployees] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("All Roles");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
   const [editEmployeeId, setEditEmployeeId] = useState(null);
   const [deleteEmployeeId, setDeleteEmployeeId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [bankDetailsModalOpen, setBankDetailsModalOpen] = useState(false);
+  const [bankDetailsEmployee, setBankDetailsEmployee] = useState(null);
+  const { toaster } = useToaster();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      const res = await axiosApiCall.get(API_ROUTER?.SPA_ROLE_LIST);
+      const rows = extractRows(res?.data?.data ?? res?.data);
+      setRoles(rows.map(mapRoleOption).filter(Boolean));
+    } catch {
+      setRoles([]);
+    }
+  }, []);
+
+  const fetchEmployees = useCallback(async (searchTerm = "") => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchTerm) params.set("search", searchTerm);
+
+      const url = params.toString()
+        ? `${API_ROUTER?.HR_EMPLOYEE_LIST}?${params.toString()}`
+        : API_ROUTER?.HR_EMPLOYEE_LIST;
+
+      const res = await axiosApiCall.get(url);
+      console.log("res fetchEmployees", res);
+      const payload = res?.data?.data ?? res?.data;
+      const rows = extractRows(payload);
+      setEmployees(rows.map(normalizeEmployee).filter((item) => item.id != null));
+    } catch {
+      setEmployees([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRoles();
+  }, [fetchRoles]);
+
+  useEffect(() => {
+    fetchEmployees(debouncedSearch);
+  }, [debouncedSearch, fetchEmployees]);
 
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.id === selectedEmployeeId) || null,
@@ -248,7 +355,11 @@ export default function HrEmployees() {
   const stats = useMemo(() => {
     const active = employees.filter((employee) => employee.status === "active").length;
     const onLeave = employees.filter((employee) => employee.status === "onleave").length;
-    const therapists = employees.filter((employee) => employee.role === "Therapist").length;
+    const therapists = employees.filter((employee) =>
+      String(employee.role || "")
+        .toLowerCase()
+        .includes("therapist")
+    ).length;
 
     return [
       { label: "Total Staff", value: employees.length, icon: STAT_ICONS.staff },
@@ -259,50 +370,72 @@ export default function HrEmployees() {
   }, [employees]);
 
   const filteredEmployees = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    if (roleFilter === "all") return employees;
 
     return employees.filter((employee) => {
-      const matchesRole =
-        roleFilter === "All Roles" || employee.role === roleFilter;
-      const matchesSearch =
-        !query ||
-        employee.name.toLowerCase().includes(query) ||
-        employee.email.toLowerCase().includes(query);
-
-      return matchesRole && matchesSearch;
-    });
-  }, [employees, search, roleFilter]);
-
-  const handleSave = (form) => {
-    if (editEmployee) {
-      setEmployees((prev) =>
-        prev.map((employee) =>
-          employee.id === editEmployee.id
-            ? mapFormToEmployee(form, employee)
-            : employee
-        )
+      return (
+        String(employee.roleId) === String(roleFilter) ||
+        String(employee.role) === String(roleFilter)
       );
-      setEditEmployeeId(null);
-      return;
-    }
+    });
+  }, [employees, roleFilter]);
 
-    setEmployees((prev) => [mapFormToEmployee(form), ...prev]);
+  const handleSave = () => {
+    setAddModalOpen(false);
+    setEditEmployeeId(null);
+    fetchEmployees(debouncedSearch);
   };
 
-  const handleDelete = () => {
-    if (!deleteEmployeeId) return;
-    setEmployees((prev) =>
-      prev.filter((employee) => employee.id !== deleteEmployeeId)
-    );
-    if (selectedEmployeeId === deleteEmployeeId) {
-      setSelectedEmployeeId(null);
+  const handleDelete = async () => {
+    if (!deleteEmployeeId || deleting) return;
+
+    try {
+      setDeleting(true);
+      const res = await axiosApiCall.post(API_ROUTER?.DELETE_EMPLOYEE, {
+        employee_id: deleteEmployeeId,
+        isAddedFromPayroll:true,
+      });
+
+      if (!res?.data?.status) {
+        toaster(
+          res?.data?.message || res?.message || TOAST_ALERTS.GENERAL_ERROR,
+          TOAST_TYPES.ERROR
+        );
+        return;
+      }
+
+      toaster(
+        res?.data?.message || "Employee deleted successfully",
+        TOAST_TYPES.SUCCESS
+      );
+
+      if (selectedEmployeeId === deleteEmployeeId) {
+        setSelectedEmployeeId(null);
+      }
+      setDeleteEmployeeId(null);
+      fetchEmployees(debouncedSearch);
+    } catch {
+      toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
+    } finally {
+      setDeleting(false);
     }
-    setDeleteEmployeeId(null);
+  };
+
+  const handleOpenBankDetails = (event, employee) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setBankDetailsEmployee(employee);
+    setBankDetailsModalOpen(true);
+  };
+
+  const handleCloseBankDetails = () => {
+    setBankDetailsModalOpen(false);
+    setBankDetailsEmployee(null);
   };
 
   return (
     <>
-      <HrPageHeader $inline>
+      <HrPageHeader $inline $banded>
         <HrPageTitleBlock $inline>
           <h1>Employee Management</h1>
           <p>Manage your spa staff and their details</p>
@@ -324,7 +457,9 @@ export default function HrEmployees() {
                 <InlineSVG src={stat.icon} />
               </span>
             </div>
-            <span className="stat-value">{stat.value}</span>
+            <span className="stat-value">
+              {loading ? <Skeleton width={40} height={28} /> : stat.value}
+            </span>
           </HrStatCard>
         ))}
       </HrMetricsGrid>
@@ -348,9 +483,10 @@ export default function HrEmployees() {
             onChange={(event) => setRoleFilter(event.target.value)}
             aria-label="Filter by role"
           >
-            {ROLE_OPTIONS.map((role) => (
-              <option key={role} value={role}>
-                {role}
+            <option value="all">All Roles</option>
+            {roles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
               </option>
             ))}
           </select>
@@ -361,54 +497,71 @@ export default function HrEmployees() {
       </HrToolbar>
 
       <HrEmployeeGrid>
-        {filteredEmployees.map((employee) => (
-          <HrEmployeeCard
-            key={employee.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => setSelectedEmployeeId(employee.id)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                setSelectedEmployeeId(employee.id);
-              }
-            }}
-          >
-            <HrEmployeeCardHeader>
-              <HrAvatar $bg="#295086" $size="lg">
-                {employee.initial}
-              </HrAvatar>
-              <HrEmployeeInfo>
-                <h3 className="employee-name">{employee.name}</h3>
-                <p className="employee-role">{employee.role}</p>
-              </HrEmployeeInfo>
-              <HrPill $tone={employee.status}>{employee.statusLabel}</HrPill>
-            </HrEmployeeCardHeader>
+        {loading ? (
+          Array.from({ length: 6 }).map((_, index) => (
+            <EmployeeCardSkeleton key={`employee-skeleton-${index}`} />
+          ))
+        ) : filteredEmployees.length > 0 ? (
+          filteredEmployees.map((employee) => (
+            <HrEmployeeCard
+              key={employee.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedEmployeeId(employee.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setSelectedEmployeeId(employee.id);
+                }
+              }}
+            >
+              <HrEmployeeCardHeader>
+                <HrAvatar $bg="#295086" $size="lg">
+                  {employee.initial}
+                </HrAvatar>
+                <HrEmployeeInfo>
+                  <h3 className="employee-name">{employee.name}</h3>
+                  <p className="employee-role">{employee.role}</p>
+                </HrEmployeeInfo>
+                <HrPill $tone={employee.status}>{employee.statusLabel}</HrPill>
+              </HrEmployeeCardHeader>
 
-            <HrEmployeeMeta>
-              <div className="meta-stats">
-                <HrEmployeeMetaItem>
-                  <span className="meta-label">Monthly</span>
-                  <span className="meta-value">
-                    {formatCurrency(employee.monthly)}
-                  </span>
-                </HrEmployeeMetaItem>
-                <HrEmployeeMetaItem>
-                  <span className="meta-label">Joined</span>
-                  <span className="meta-value">{employee.joined}</span>
-                </HrEmployeeMetaItem>
-              </div>
-              <HrEmployeeMetaItem className="meta-contact">
-                <span className="meta-label">Contact</span>
-                <span className="meta-value meta-value--contact">
-                  {employee.email}
-                </span>
-              </HrEmployeeMetaItem>
-            </HrEmployeeMeta>
-          </HrEmployeeCard>
-        ))}
-
-        {!filteredEmployees.length && (
+              <HrEmployeeMeta>
+                <div className="meta-stats">
+                  <HrEmployeeMetaItem>
+                    <span className="meta-label">
+                      {employee.salaryType === "hourly" ? "Hourly" : "Monthly"}
+                    </span>
+                    <span className="meta-value">
+                      {formatCurrency(employee.monthly)}
+                    </span>
+                  </HrEmployeeMetaItem>
+                  <HrEmployeeMetaItem>
+                    <span className="meta-label">Joined</span>
+                    <span className="meta-value">{employee.joined || "-"}</span>
+                  </HrEmployeeMetaItem>
+                </div>
+                <div className="meta-contact-row">
+                  <HrEmployeeMetaItem className="meta-contact">
+                    <span className="meta-label">Contact</span>
+                    <span className="meta-value meta-value--contact">
+                      {employee.email || "-"}
+                    </span>
+                  </HrEmployeeMetaItem>
+                  {!employee.isBankDetailsAdded && (
+                    <HrEmployeeCardActionButton
+                      type="button"
+                      aria-label={`Add bank details for ${employee.name}`}
+                      onClick={(event) => handleOpenBankDetails(event, employee)}
+                    >
+                      Add Bank Details
+                    </HrEmployeeCardActionButton>
+                  )}
+                </div>
+              </HrEmployeeMeta>
+            </HrEmployeeCard>
+          ))
+        ) : (
           <HrEmptyState>No employees match your search.</HrEmptyState>
         )}
       </HrEmployeeGrid>
@@ -439,8 +592,30 @@ export default function HrEmployees() {
 
       <DeleteEmployeeModal
         open={Boolean(deleteEmployeeId)}
-        onClose={() => setDeleteEmployeeId(null)}
+        onClose={() => {
+          if (deleting) return;
+          setDeleteEmployeeId(null);
+        }}
         onConfirm={handleDelete}
+        loading={deleting}
+      />
+
+      <BankDetailModal
+        lgShow={bankDetailsModalOpen}
+        setLgShow={(open) => {
+          if (!open) handleCloseBankDetails();
+          else setBankDetailsModalOpen(true);
+        }}
+        employee={
+          bankDetailsEmployee
+            ? {
+                id: bankDetailsEmployee.id,
+                name: bankDetailsEmployee.name,
+                email: bankDetailsEmployee.email,
+              }
+            : null
+        }
+        onSuccess={() => fetchEmployees(debouncedSearch)}
       />
     </>
   );

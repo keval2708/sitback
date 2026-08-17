@@ -126,6 +126,7 @@ const CardForm = ({ onHide, onSuccess, selectedClient }) => {
         user_id: userId,
         sourceId: cardToken,
         stripe_token: cardToken,
+        isCardAddedFromPos: true,
       });
       if (!res?.status) {
         setIsPaymentProgress(false);

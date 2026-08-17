@@ -13,6 +13,7 @@ export const theme = {
     dimgraytext: "#6F6C90",
     grayv2: "#8391A1",
     lightGreen: "#4A9D77",
+    lightGreen2: "#10B981",
     blur: '#89C5D0',
     logintitlecolor: '#004D87',
   },

@@ -7,6 +7,8 @@ import DateTime from "react-datetime";
 import "react-datetime/css/react-datetime.css";
 import InlineSVG from "svg-inline-react";
 import * as yup from "yup";
+import { useToaster } from "@/hooks";
+import { API_ROUTER } from "@/services/apiRouter";
 import {
   HrField,
   HrModalActions,
@@ -19,6 +21,8 @@ import {
   HrModalRow,
   HrSecondaryButton,
 } from "@/styles/pages/hr-module.style";
+import axiosApiCall from "@/utils/axios";
+import { TOAST_ALERTS, TOAST_TYPES } from "@/utils/constants";
 
 const CLOSE_ICON = `<svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
 <circle cx="12.5" cy="12.5" r="12.5" fill="white"/>
@@ -30,6 +34,13 @@ const CALENDAR_ICON = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3
 const CLOCK_ICON = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 4.667V8h2.667M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 const TIME_FORMAT = "hh:mm A";
+const API_TIME_FORMAT = "HH:mm";
+
+const toApiTime = (value) => {
+  if (!value) return "";
+  const parsed = moment(value, TIME_FORMAT, true);
+  return parsed.isValid() ? parsed.format(API_TIME_FORMAT) : value;
+};
 
 const getInitialForm = (defaultDate) => ({
   employeeId: "",
@@ -83,8 +94,8 @@ const attendanceValidationSchema = yup.object({
       originalValue === "" || originalValue == null ? undefined : value
     )
     .nullable()
-    .min(0, "Overtime minutes cannot be negative")
-    .typeError("Overtime minutes must be a number"),
+    .min(0, "Overtime hours cannot be negative")
+    .typeError("Overtime hours must be a number"),
   notes: yup.string().nullable(),
 });
 
@@ -97,24 +108,72 @@ export default function RecordAttendanceModal({
 }) {
   const [form, setForm] = useState(() => getInitialForm(defaultDate));
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [timeFieldsKey, setTimeFieldsKey] = useState(0);
+  const { toaster } = useToaster();
 
   useEffect(() => {
     if (open) {
       setForm(getInitialForm(defaultDate || moment().format("YYYY-MM-DD")));
       setErrors({});
+      setSubmitting(false);
+      // Remount DateTime inputs so previous check-in/out times do not stick
+      setTimeFieldsKey((prev) => prev + 1);
     }
   }, [open, defaultDate]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const keepTimePickerFocus = (event) => {
+      if (event.target.closest(".rdtPicker")) {
+        event.preventDefault();
+      }
+    };
+
+    document.addEventListener("mousedown", keepTimePickerFocus);
+    return () => {
+      document.removeEventListener("mousedown", keepTimePickerFocus);
+    };
+  }, [open]);
 
   if (!open) return null;
 
   const updateField = (key) => (event) => {
-    setForm((prev) => ({ ...prev, [key]: event.target.value }));
-    setErrors((prev) => ({ ...prev, [key]: "" }));
+    const value = event.target.value;
+    setForm((prev) => {
+      if (prev[key] === value) return prev;
+      return { ...prev, [key]: value };
+    });
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      return { ...prev, [key]: "" };
+    });
+  };
+
+  const updateNumberField = (key) => (event) => {
+    const value = event.target.value;
+    if (value !== "" && Number(value) < 0) return;
+
+    setForm((prev) => {
+      if (prev[key] === value) return prev;
+      return { ...prev, [key]: value };
+    });
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      return { ...prev, [key]: "" };
+    });
   };
 
   const updateValue = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: "" }));
+    setForm((prev) => {
+      if (prev[key] === value) return prev;
+      return { ...prev, [key]: value };
+    });
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      return { ...prev, [key]: "" };
+    });
   };
 
   const handleTimeChange = (key) => (time) => {
@@ -150,9 +209,45 @@ export default function RecordAttendanceModal({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!(await validate())) return;
-    onSave?.(form);
-    onClose?.();
+    if (!(await validate()) || submitting) return;
+
+    const payload = {
+      employeeId: Number(form.employeeId),
+      date: form.date,
+      status: form.status,
+      checkIn: toApiTime(form.checkIn),
+      checkOut: toApiTime(form.checkOut),
+      breakDuration: Number(form.breakMinutes || 0),
+      overtimeHours: Number(form.overtimeMinutes || 0),
+      notes: form.notes?.trim() || "",
+    };
+
+    try {
+      setSubmitting(true);
+      const res = await axiosApiCall.post(
+        API_ROUTER?.HR_ATTENDANCE_CREATE,
+        payload
+      );
+
+      if (!res?.data?.status) {
+        toaster(
+          res?.data?.message || res?.message || TOAST_ALERTS.GENERAL_ERROR,
+          TOAST_TYPES.ERROR
+        );
+        return;
+      }
+
+      toaster(
+        res?.data?.message || "Attendance recorded successfully",
+        TOAST_TYPES.SUCCESS
+      );
+      onSave?.(payload);
+      onClose?.();
+    } catch {
+      toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -160,12 +255,17 @@ export default function RecordAttendanceModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="record-attendance-title"
-      onClick={onClose}
+      onClick={submitting ? undefined : onClose}
     >
       <HrModalCard onClick={(event) => event.stopPropagation()}>
         <HrModalHeader>
           <h2 id="record-attendance-title">Record Attendance</h2>
-          <HrModalClose type="button" aria-label="Close" onClick={onClose}>
+          <HrModalClose
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            disabled={submitting}
+          >
             <InlineSVG src={CLOSE_ICON} />
           </HrModalClose>
         </HrModalHeader>
@@ -177,6 +277,7 @@ export default function RecordAttendanceModal({
                 value={form.employeeId}
                 onChange={updateField("employeeId")}
                 aria-label="Employee"
+                disabled={submitting}
               >
                 <option value="">Select Employee</option>
                 {employees.map((employee) => (
@@ -207,6 +308,7 @@ export default function RecordAttendanceModal({
                 placeholderText="Date"
                 onKeyDown={(event) => event.preventDefault()}
                 aria-label="Date"
+                disabled={submitting}
               />
               <span className="field-icon">
                 <InlineSVG src={CALENDAR_ICON} />
@@ -218,10 +320,11 @@ export default function RecordAttendanceModal({
                 value={form.status}
                 onChange={updateField("status")}
                 aria-label="Status"
+                disabled={submitting}
               >
                 <option value="">Status</option>
                 <option value="present">Present</option>
-                <option value="halfday">Half Day</option>
+                <option value="halfDay">Half Day</option>
                 <option value="late">Late</option>
               </select>
               <span className="field-icon">
@@ -232,17 +335,20 @@ export default function RecordAttendanceModal({
           </HrModalRow>
 
           <HrModalRow $cols="1fr 1fr">
-            <HrField $empty={!form.checkIn}>
+            <HrField as="div" $empty={!form.checkIn}>
               <DateTime
+                key={`check-in-${timeFieldsKey}`}
                 dateFormat={false}
                 timeFormat={TIME_FORMAT}
-                closeOnSelect
+                closeOnSelect={false}
                 value={form.checkIn || ""}
                 onChange={handleTimeChange("checkIn")}
                 inputProps={{
                   placeholder: "Check In",
                   "aria-label": "Check In",
                   readOnly: true,
+                  disabled: submitting,
+                  autoComplete: "off",
                 }}
               />
               <span className="field-icon">
@@ -250,17 +356,20 @@ export default function RecordAttendanceModal({
               </span>
               {errors.checkIn && <p className="error">{errors.checkIn}</p>}
             </HrField>
-            <HrField $empty={!form.checkOut}>
+            <HrField as="div" $empty={!form.checkOut}>
               <DateTime
+                key={`check-out-${timeFieldsKey}`}
                 dateFormat={false}
                 timeFormat={TIME_FORMAT}
-                closeOnSelect
+                closeOnSelect={false}
                 value={form.checkOut || ""}
                 onChange={handleTimeChange("checkOut")}
                 inputProps={{
                   placeholder: "Check Out",
                   "aria-label": "Check Out",
                   readOnly: true,
+                  disabled: submitting,
+                  autoComplete: "off",
                 }}
               />
               <span className="field-icon">
@@ -271,25 +380,53 @@ export default function RecordAttendanceModal({
           </HrModalRow>
 
           <HrModalRow $cols="1fr 1fr">
-            <HrField>
+            <HrField as="div">
               <input
                 type="number"
                 min="0"
+                inputMode="numeric"
+                autoComplete="off"
                 placeholder="Break Duration (min)"
                 value={form.breakMinutes}
-                onChange={updateField("breakMinutes")}
+                onChange={updateNumberField("breakMinutes")}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "-" ||
+                    event.key === "e" ||
+                    event.key === "E" ||
+                    event.key === "+"
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
+                onWheel={(event) => event.currentTarget.blur()}
+                disabled={submitting}
               />
               {errors.breakMinutes && (
                 <p className="error">{errors.breakMinutes}</p>
               )}
             </HrField>
-            <HrField>
+            <HrField as="div">
               <input
                 type="number"
                 min="0"
-                placeholder="Overtime (min)"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Overtime (hrs)"
                 value={form.overtimeMinutes}
-                onChange={updateField("overtimeMinutes")}
+                onChange={updateNumberField("overtimeMinutes")}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "-" ||
+                    event.key === "e" ||
+                    event.key === "E" ||
+                    event.key === "+"
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
+                onWheel={(event) => event.currentTarget.blur()}
+                disabled={submitting}
               />
               {errors.overtimeMinutes && (
                 <p className="error">{errors.overtimeMinutes}</p>
@@ -304,15 +441,22 @@ export default function RecordAttendanceModal({
                 value={form.notes}
                 onChange={updateField("notes")}
                 className="resize-none"
+                disabled={submitting}
               />
             </HrField>
           </HrModalRow>
 
           <HrModalActions>
-            <HrSecondaryButton type="button" onClick={onClose}>
+            <HrSecondaryButton
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+            >
               Cancel
             </HrSecondaryButton>
-            <HrModalPrimaryButton type="submit">Save</HrModalPrimaryButton>
+            <HrModalPrimaryButton type="submit" disabled={submitting}>
+              {submitting ? "Saving..." : "Save"}
+            </HrModalPrimaryButton>
           </HrModalActions>
         </HrModalForm>
       </HrModalCard>

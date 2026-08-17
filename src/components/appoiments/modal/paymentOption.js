@@ -82,7 +82,7 @@ const resolveClientId = (bookingData) =>
   bookingData?.userId ||
   null;
 
-const CardForm = ({ onHide, onSuccess, selectedClient }) => {
+const CardForm = ({ onHide, onSuccess, selectedClient, bookingId }) => {
   const stripe = useStripe();
   const elements = useElements();
   const { toaster } = useToaster();
@@ -138,6 +138,7 @@ const CardForm = ({ onHide, onSuccess, selectedClient }) => {
         user_id: userId,
         sourceId: cardToken,
         stripe_token: cardToken,
+        bookingId,
       });
       if (!res?.status) {
         setIsPaymentProgress(false);
@@ -247,7 +248,7 @@ const CardForm = ({ onHide, onSuccess, selectedClient }) => {
   );
 };
 
-const AddCardModal = ({ show, onHide, onSuccess, selectedClient }) => (
+const AddCardModal = ({ show, onHide, onSuccess, selectedClient, bookingId }) => (
   <Modal
     show={show}
     onHide={onHide}
@@ -259,7 +260,12 @@ const AddCardModal = ({ show, onHide, onSuccess, selectedClient }) => (
       <SitBackModalBodyWrapper>
         <h3 className="modal-title-text">Add Card Details</h3>
         <Elements stripe={stripePromise}>
-          <CardForm onHide={onHide} onSuccess={onSuccess} selectedClient={selectedClient} />
+          <CardForm
+            onHide={onHide}
+            onSuccess={onSuccess}
+            selectedClient={selectedClient}
+            bookingId={bookingId}
+          />
         </Elements>
       </SitBackModalBodyWrapper>
     </Modal.Body>
@@ -1243,6 +1249,13 @@ const PaymentOption = ({
         show={showCardModal}
         onHide={() => setShowCardModal(false)}
         selectedClient={selectedClientForCard}
+        bookingId={
+          selectedData?.id ||
+          selectedData?.bookingId ||
+          data?.id ||
+          data?.bookingId ||
+          null
+        }
         onSuccess={(details) => {
           const customerId =
             resolveClientId(data) || details?.customerId || selectedClientForCard?.customerId;

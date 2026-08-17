@@ -65,38 +65,43 @@ export const Message = ({ setUnreadCount }) => {
   const { isBlock } = useSelector(messageCheckSliceSelector);
 
   const createChat = async () => {
-    if (sending) return; // Prevent duplicate sends
+    if (sending) return;
 
-    setSending(true); // Mark sending as true
+    const text = messageText?.trim();
+    if (!text) return;
+
+    setSending(true);
+    setSendMessageClicked(true);
+    setMessageText("");
+    setTypingStatus(0);
+    await getUserTyping(0);
 
     const params = {
       mediaType: "text",
       fromUserId: login?.id,
       userId: activeChat?.current?.usernameID,
-      mediaContent: messageText?.trim(),
+      mediaContent: text,
       chatBy: "serviceprovider",
     };
 
     try {
-      setLoading(true);
       const res = await axiosApiCall.post(API_ROUTER?.CREATE_CHAT, params);
       if (!res?.status) {
         toaster(res?.data?.message, TOAST_TYPES.ERROR);
+        setMessageText(text);
       } else {
         const newMessage = res?.data?.result;
         chatMessages.current = [...chatMessages.current, newMessage];
-        setTypingStatus(0);
         getUserChatList("");
-        setMessageText(""); // Clear input after successful send
         setIsRead(false);
-        setSendMessageClicked(false);
       }
     } catch (error) {
       toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
+      setMessageText(text);
     } finally {
       setSendMessageClicked(false);
       setLoading(false);
-      setSending(false); // Reset sending state
+      setSending(false);
     }
   };
 
@@ -132,23 +137,20 @@ export const Message = ({ setUnreadCount }) => {
     }
   };
 
-  const getUserTyping = async () => {
+  const getUserTyping = async (status = typingStatus) => {
     if (activeChat?.current?.usernameID == undefined) return;
     const params = {
       fromUserId: login?.id,
       userId: activeChat?.current?.usernameID || "",
-      typingStatus: typingStatus,
+      typingStatus: status,
     };
     try {
-      setLoading(true);
       const res = await axiosApiCall.post(API_ROUTER?.USER_TYPING, params);
       if (!res?.status) {
         return toaster(res?.data?.message, TOAST_TYPES.ERROR);
       }
     } catch (error) {
       toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -378,15 +380,28 @@ export const Message = ({ setUnreadCount }) => {
   }, [messageTab]);
 
   useEffect(() => {
-    if (window.io) {
-      window.io.socket.on("serviceprovider", async (message) => {
-        if (messageTab == "second") {
-          setLiveStatus(message);
-          await socketHandler(message);
-        }
-      });
-    }
-  }, [window.io, messageTab]);
+    const handleSocketMessage = async (message) => {
+      if (messageTab != "second") return;
+      setLiveStatus(message);
+      await socketHandler(message);
+    };
+
+    const attach = () => {
+      if (!window.io?.socket) return;
+      window.io.socket.off("serviceprovider", handleSocketMessage);
+      window.io.socket.off("message", handleSocketMessage);
+      window.io.socket.on("serviceprovider", handleSocketMessage);
+      window.io.socket.on("message", handleSocketMessage);
+    };
+
+    attach();
+    window.addEventListener("sitback-socket-ready", attach);
+    return () => {
+      window.removeEventListener("sitback-socket-ready", attach);
+      window.io?.socket?.off("serviceprovider", handleSocketMessage);
+      window.io?.socket?.off("message", handleSocketMessage);
+    };
+  }, [messageTab]);
 
   useEffect(() => {
     if (
@@ -402,6 +417,10 @@ export const Message = ({ setUnreadCount }) => {
       } else if (livestatus?.action === "userTypingStoped") {
         setChatStatus("Online");
       }
+    } else if (livestatus?.action === "userTyping" && livestatus?.message == 1) {
+      setChatStatus("Typing...");
+    } else if (livestatus?.action === "userTypingStoped" && livestatus?.message == 1) {
+      setChatStatus("Online");
     } else {
       setChatStatus(activeChat?.current?.userOnStatus);
     }
@@ -611,7 +630,7 @@ export const Message = ({ setUnreadCount }) => {
                             <textarea
                               placeholder="Type messages..."
                               value={messageText}
-                              onChange={(e) => setMessageText(e.target.value)}
+                              onChange={(e) => handleChange(e)}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                   e.preventDefault();

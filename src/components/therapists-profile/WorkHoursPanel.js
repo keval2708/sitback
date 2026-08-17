@@ -57,7 +57,7 @@ export default function WorkHoursPanel({ therapist }) {
             id: h?.id,
             name: h?.reason || "",
             date: h?.leaveDate || "",
-            isOpen: h?.leaveType === "full_day" ? false : true,
+            isOpen: h?.leaveType === "full_day" ? false : Boolean(h?.start_time && h?.end_time),
             start_time: h?.start_time || "",
             end_time: h?.end_time || "",
             isRepeating: isRepeatingVal,

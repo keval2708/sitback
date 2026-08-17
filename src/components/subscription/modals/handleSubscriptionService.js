@@ -137,9 +137,29 @@ const HandleSubscriptionService = ({ show, handleClose = () => { }, subscription
     name: "service_list",
   });
 
-   const duplicateService = (index) => {
-    const currentService = getValues(`service_list[${index}]`);
-    insert(index + 1, { ...currentService, is_checked: currentService.is_checked, isDisable: false });
+  const duplicateService = (index) => {
+    const currentService = getValues(`service_list.${index}`);
+    if (!currentService) return;
+
+    insert(index + 1, {
+      key: currentService.key,
+      value: currentService.value,
+      label: currentService.label,
+      image: currentService.image,
+      is_checked: true,
+      price: currentService.price || 0,
+      servicetype: currentService.servicetype,
+      serviceslistid: currentService.serviceslistid,
+      isDisable: false,
+      hour: {
+        label: currentService?.hour?.label ?? 0,
+        value: currentService?.hour?.value ?? 0,
+      },
+      minute: {
+        label: currentService?.minute?.label ?? 0,
+        value: currentService?.minute?.value ?? 0,
+      },
+    });
   };
 
   const onSubmitForm = async (formData) => {
@@ -260,31 +280,28 @@ const HandleSubscriptionService = ({ show, handleClose = () => { }, subscription
     >
       <Modal.Body>
         <SitBackModalBodyWrapper>
-          <Loader loading={loading} />
+          <Loader loading={loading} className="sitback-loader" />
           <Form onSubmit={handleSubmit(onSubmitForm)}>
             {fields?.map((day, index) => {
-              const current_obj = watch(`service_list[${index}]`);
+              const current_obj = watch(`service_list.${index}`);
 
               return (
-                <div key={index}>
-                  <FormGroup controlId="formBasicEmail" className="formgropcustom">
+                <div key={day.id}>
+                  <FormGroup controlId={`service-check-${day.id}`} className="formgropcustom">
                     <Controller
-                      key={index}
-                      name={`service_list[${index}].is_checked`}
+                      name={`service_list.${index}.is_checked`}
                       control={control}
-                      render={({ field }) => (
+                      render={({ field: { value, onChange, onBlur, name, ref } }) => (
                         <Form.Check
-                          key={index}
                           label={day.label}
                           type="checkbox"
-                          id={`inline-checkbox-${index}`}
+                          id={`inline-checkbox-${day.id}`}
                           className="checkbox-wrapper-div"
-                          checked={field.value}
-                          // value={day.value}
-                          {...field}
-                          onChange={(e) => {
-                            field.onChange(e);
-                          }}
+                          name={name}
+                          ref={ref}
+                          onBlur={onBlur}
+                          checked={!!value}
+                          onChange={(e) => onChange(e.target.checked)}
                         />
                       )}
                     />
@@ -298,60 +315,51 @@ const HandleSubscriptionService = ({ show, handleClose = () => { }, subscription
                     <>
                       <Row className="subscription-model">
                         <Col md={6}>
-                          <FormGroup controlId="formBasicEmail" className="formgrop">
+                          <FormGroup controlId={`service-price-${day.id}`} className="formgrop">
                             <Label>{t("price")}</Label>
-                            <Input type="text" {...register(`service_list[${index}].price`)} placeholder="$" />
+                            <Input type="text" {...register(`service_list.${index}.price`)} placeholder="$" className="subscription-price-input" />
                             <p className="text-danger">{errors?.service_list ? errors?.service_list[index]?.price?.message : ""}</p>
                           </FormGroup>
                         </Col>
                         <Col md={6}>
-                          <FormGroup controlId="formBasicEmail" className="formgrop">
+                          <FormGroup controlId={`service-duration-${day.id}`} className="formgrop">
                             <div className="length-detail-div">
                               <div className="input-wrapper">
                                 <Label>{t("Hour")}</Label>
                                 <Controller
-                                  name={`service_list[${index}].hour`}
+                                  name={`service_list.${index}.hour`}
                                   control={control}
                                   render={({ field }) => (
                                     <ReactSelect
-                                      className="sitback-select2-container input-with-icon"
+                                      className="sitback-select2-container input-with-icon coming-soon-select"
                                       classNamePrefix="sitback-select-option"
-                                      // placeholder="Hour"
                                       options={hourOptions}
                                       menuPlacement="auto"
                                       maxMenuHeight={200}
-
                                       closeMenuOnSelect={true}
                                       hideSelectedOptions={false}
                                       {...field}
-                                      // isOptionDisabled={true}
-                                      // isDisabled={current_obj?.isDisable}
                                       onBlur={() => trigger("duration")}
                                       isSearchable={true}
                                       onChange={(e) => {
                                         field.onChange(e);
                                         if (e?.value > 0) {
-                                          clearErrors(`service_list[${index}].minute`)
+                                          clearErrors(`service_list.${index}.minute`)
                                         }
                                       }}
-                                    // onChange={handleChange}
-                                    // allowSelectAll={true}
-                                    // value={hourSelected}
                                     />
                                   )}
                                 />
-                                {/* <p className="text-danger">{errors?.service_list ? errors?.service_list[index]?.hour.message : ""}</p> */}
                               </div>
                               <div className="input-wrapper">
                                 <Label>{t("minute")}</Label>
                                 <Controller
-                                  name={`service_list[${index}].minute`}
+                                  name={`service_list.${index}.minute`}
                                   control={control}
                                   render={({ field }) => (
                                     <ReactSelect
-                                      className="sitback-select2-container input-with-icon"
+                                      className="sitback-select2-container input-with-icon coming-soon-select"
                                       classNamePrefix="sitback-select-option"
-                                      // placeholder="Minute"
                                       menuPlacement="auto"
                                       maxMenuHeight={200}
                                       options={minute_options}
@@ -360,27 +368,18 @@ const HandleSubscriptionService = ({ show, handleClose = () => { }, subscription
                                       {...field}
                                       onBlur={() => trigger("duration")}
                                       isSearchable={false}
-                                      // isDisabled={current_obj?.isDisable}
                                       onChange={(e) => {
                                         field.onChange(e);
                                         if (e?.value > 0) {
-                                          clearErrors(`service_list[${index}].minute`)
+                                          clearErrors(`service_list.${index}.minute`)
                                         }
                                       }}
-                                    // isSearchable={true}
-                                    // onChange={handleChange}
-                                    // allowSelectAll={true}
-                                    // value={hourSelected}
                                     />
                                   )}
                                 />
                               </div>
-
-                              {/* <p className="text-danger">{errors?.service_list ? errors?.service_list[index]?.minute.message : ""}</p> */}
-
                             </div>
                             <p className="text-danger">{errors?.service_list ? errors?.service_list[index]?.minute?.message : ""}</p>
-
                           </FormGroup>
                         </Col>
                       </Row>

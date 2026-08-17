@@ -83,7 +83,7 @@ const MARKETPLACE_APPS = [
     title: "Client",
     description: "Manage client profiles and history.",
     cta: "View Clients",
-    href: "#",
+    href: PATH_DASHBOARD?.appsClients,
     icon: ICONS.client,
   },
   {
@@ -105,9 +105,9 @@ const MARKETPLACE_APPS = [
   {
     id: "payroll",
     title: "Payroll",
-    description: "Manage payroll, salaries, and payments.",
+    description: "Manage payroll, salaries and payments.",
     cta: "Open Payroll",
-    href: PATH_DASHBOARD.appsPayroll,
+    href: PATH_DASHBOARD?.appsPayroll,
     icon: ICONS.payroll,
   },
   {

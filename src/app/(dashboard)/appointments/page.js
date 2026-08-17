@@ -745,8 +745,7 @@ export default function AppointmentsPage() {
 
   let allDataArray = [];
   useEffect(() => {
-    if (window.io) {
-      window.io.socket.on("serviceprovider", async (msg) => {
+    const handleServiceProvider = async (msg) => {
         if (
           msg.action == "auto_no_show_user_booking_alert" ||
           msg.action == "auto_start_service_user_booking_alert" ||
@@ -934,9 +933,22 @@ export default function AppointmentsPage() {
             });
           }
         }
-      });
-    }
-  }, [window.io, upcomingList]);
+    };
+
+    const attach = () => {
+      if (!window.io?.socket) return;
+      window.io.socket.off("serviceprovider", handleServiceProvider);
+      window.io.socket.on("serviceprovider", handleServiceProvider);
+    };
+
+    attach();
+    window.addEventListener("sitback-socket-ready", attach);
+
+    return () => {
+      window.removeEventListener("sitback-socket-ready", attach);
+      window.io?.socket?.off("serviceprovider", handleServiceProvider);
+    };
+  }, [upcomingList]);
 
   // Handle Redux updates
   const handleTargetData = () => {

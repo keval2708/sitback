@@ -50,6 +50,7 @@ export const PATH_DASHBOARD = {
   getStarted: "/get-started",
   apps: "/apps",
   appsPayroll: "/apps/payroll",
+  appsClients: "/apps/clients",
   // privacyPolicy: "/privacyPolicy",
 };
 

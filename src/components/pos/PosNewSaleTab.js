@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import InfiniteScroll from "react-infinite-scroll-component";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
@@ -10,6 +10,7 @@ import { API_ROUTER } from "@/services/apiRouter";
 import {
   AddCartButton,
   CategoryPill,
+  CategoryScrollBtn,
   CategorySection,
   CategoryTabContainer,
   EmptyState,
@@ -61,11 +62,52 @@ export default function PosNewSaleTab({ searchProduct = "" }) {
 
   const [cartItems, setCartItems] = useState([]);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const categoryScrollRef = useRef(null);
+
+  const updateCategoryScrollState = useCallback(() => {
+    const el = categoryScrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 2);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 2);
+  }, []);
+
+  const scrollCategories = useCallback((direction) => {
+    const el = categoryScrollRef.current;
+    if (!el) return;
+    const amount = Math.max(el.clientWidth * 0.6, 180);
+    el.scrollBy({ left: direction === "left" ? -amount : amount, behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    updateCategoryScrollState();
+    const el = categoryScrollRef.current;
+    if (!el) return undefined;
+
+    const onScroll = () => updateCategoryScrollState();
+    el.addEventListener("scroll", onScroll, { passive: true });
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => updateCategoryScrollState())
+        : null;
+    resizeObserver?.observe(el);
+
+    window.addEventListener("resize", updateCategoryScrollState);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateCategoryScrollState);
+    };
+  }, [categories, updateCategoryScrollState]);
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const res = await axiosApiCall.get(API_ROUTER?.POS_CATEGORY_LIST);
+        console.log("category", res);
         if (!res?.data?.status) return;
 
         const payload = res?.data?.data;
@@ -315,19 +357,45 @@ export default function PosNewSaleTab({ searchProduct = "" }) {
     setShowCheckoutModal(false);
     refreshStockSilent();
   };
+  const ArrowLeftIcon = () => {
+    return (
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="34" height="34" rx="17" transform="matrix(-1 0 0 1 34 0)" fill="#E9ECF3"/>
+        <path d="M16.7277 17.8594L18.7981 14.3125H17.634L15.259 17.8125L17.634 21.4375H18.7981L16.7277 17.8594Z" fill="#1F2430"/>
+      </svg>
+    );
+  };
+  const ArrowRightIcon = () => {
+    return (
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="34" height="34" rx="17" fill="#E9ECF3"/>
+        <path d="M17.2723 17.8594L15.2019 14.3125H16.366L18.741 17.8125L16.366 21.4375H15.2019L17.2723 17.8594Z" fill="#1F2430"/>
+      </svg>
+    );
+  };
 
   return (
     <>
       <ListLayoutWrapper>
         <ListMainArea>
           <CategorySection>
-            <CategoryTabContainer>
+            <CategoryScrollBtn
+              type="button"
+              aria-label="Scroll categories left"
+              disabled={!canScrollLeft}
+              onClick={() => scrollCategories("left")}
+            >
+              <ArrowLeftIcon />
+            </CategoryScrollBtn>
+
+            <CategoryTabContainer ref={categoryScrollRef}>
               <CategoryPill
                 active={selectedCategory === "all"}
                 onClick={() => setSelectedCategory("all")}
               >
                 All
               </CategoryPill>
+
               {categories.map((cat) => (
                 <CategoryPill
                   key={cat.id}
@@ -338,6 +406,15 @@ export default function PosNewSaleTab({ searchProduct = "" }) {
                 </CategoryPill>
               ))}
             </CategoryTabContainer>
+
+            <CategoryScrollBtn
+              type="button"
+              aria-label="Scroll categories right"
+              disabled={!canScrollRight}
+              onClick={() => scrollCategories("right")}
+            >
+             <ArrowRightIcon />
+            </CategoryScrollBtn>
           </CategorySection>
 
           {loading && products.length === 0 ? (

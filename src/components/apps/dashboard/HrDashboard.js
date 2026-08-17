@@ -1,7 +1,24 @@
 "use client";
 
-import React from "react";
+import {
+  ArcElement,
+  CategoryScale,
+  Chart as ChartJS,
+  DoughnutController,
+  Filler,
+  Legend,
+  LineController,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip,
+} from "chart.js";
+import moment from "moment";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Skeleton from "react-loading-skeleton";
+import "react-loading-skeleton/dist/skeleton.css";
 import InlineSVG from "svg-inline-react";
+import { API_ROUTER } from "@/services/apiRouter";
 import {
   HrAccentButton,
   HrActionButtons,
@@ -16,7 +33,6 @@ import {
   HrMetricCard,
   HrMetricLabel,
   HrMetricTop,
-  HrMetricTrend,
   HrMetricValue,
   HrMetricsGrid,
   HrMiddleGrid,
@@ -37,6 +53,20 @@ import {
   HrUpcomingHeader,
   HrViewAllButton,
 } from "@/styles/pages/hr-module.style";
+import axiosApiCall from "@/utils/axios";
+
+ChartJS.register(
+  LineController,
+  DoughnutController,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 const PLUS_ICON = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M9.33333 5.33333H5.33333V9.33333H4V5.33333H0V4H4V0H5.33333V4H9.33333V5.33333Z" fill="white"/>
@@ -64,17 +94,14 @@ const CLOCK_ICON = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" 
 <path d="M20 15V20H25M20 29C18.8181 29 17.6478 28.7672 16.5558 28.3149C15.4639 27.8626 14.4718 27.1997 13.636 26.364C12.8003 25.5282 12.1374 24.5361 11.6851 23.4442C11.2328 22.3522 11 21.1819 11 20C11 18.8181 11.2328 17.6478 11.6851 16.5558C12.1374 15.4639 12.8003 14.4718 13.636 13.636C14.4718 12.8003 15.4639 12.1374 16.5558 11.6851C17.6478 11.2328 18.8181 11 20 11C22.3869 11 24.6761 11.9482 26.364 13.636C28.0518 15.3239 29 17.6131 29 20C29 22.3869 28.0518 24.6761 26.364 26.364C24.6761 28.0518 22.3869 29 20 29Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 `;
-const SPARKLINE = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M6.78906 2.5H9.64621V5.35714" stroke="#007BFF" stroke-width="0.714286" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M9.64509 2.5L5.60938 6.53571C5.54261 6.60115 5.45286 6.63781 5.35938 6.63781C5.26589 6.63781 5.17614 6.60115 5.10938 6.53571L3.46652 4.89286C3.39976 4.82742 3.31 4.79077 3.21652 4.79077C3.12303 4.79077 3.03328 4.82742 2.96652 4.89286L0.359375 7.5" stroke="#007BFF" stroke-width="0.714286" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-`;
-const CHECK_ICON = `<svg width="15" height="11" viewBox="0 0 15 11" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M0.75 5.59848L4.99242 9.84091L13.4773 0.75" stroke="#295086" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+const CHECK_ICON = `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="14" cy="14" r="13" stroke="#295086" stroke-width="1.5"/>
+<path d="M8.5 14.2L12.2 17.8L19.5 10.2" stroke="#295086" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
-const CROSS_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M10.447 10.447L0.75 0.75M10.447 0.75L0.75 10.447" stroke="#FF0000" stroke-width="1.5" stroke-linecap="round"/>
+const CROSS_ICON = `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="14" cy="14" r="13" stroke="#FF0000" stroke-width="1.5"/>
+<path d="M18.5 18.5L9.5 9.5M18.5 9.5L9.5 18.5" stroke="#FF0000" stroke-width="1.5" stroke-linecap="round"/>
 </svg>`;
 
 const PAYROLL_RING_ICON = `<svg width="136" height="136" viewBox="0 0 136 136" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -82,16 +109,11 @@ const PAYROLL_RING_ICON = `<svg width="136" height="136" viewBox="0 0 136 136" f
 </svg>
 
 `;
-const PAYROLL_RING_ICON_WHITE = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="40" height="40" rx="8" fill="white"/>
-<path d="M20 15V20H25M20 29C18.8181 29 17.6478 28.7672 16.5558 28.3149C15.4639 27.8626 14.4718 27.1997 13.636 26.364C12.8003 25.5282 12.1374 24.5361 11.6851 23.4442C11.2328 22.3522 11 21.1819 11 20C11 18.8181 11.2328 17.6478 11.6851 16.5558C12.1374 15.4639 12.8003 14.4718 13.636 13.636C14.4718 12.8003 15.4639 12.1374 16.5558 11.6851C17.6478 11.2328 18.8181 11 20 11C22.3869 11 24.6761 11.9482 26.364 13.636C28.0518 15.3239 29 17.6131 29 20C29 22.3869 28.0518 24.6761 26.364 26.364C24.6761 28.0518 22.3869 29 20 29Z" stroke="#007BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-`;
-const METRICS = [
-  { label: "Total Employees", value: "6", icon: USERS_ICON },
-  { label: "Active Employees", value: "5", icon: USERS_ICON },
-  { label: "On Leave", value: "4", icon: CALENDAR_ICON },
-  { label: "Present Today", value: "7", icon: CLOCK_ICON },
+const DEFAULT_METRICS = [
+  { label: "Total Employees", value: "0", icon: USERS_ICON },
+  { label: "Active Employees", value: "0", icon: USERS_ICON },
+  { label: "On Leave", value: "0", icon: CALENDAR_ICON },
+  { label: "Present Today", value: "0", icon: CLOCK_ICON },
 ];
 
 const TIPS_ICON = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -103,162 +125,646 @@ const TIPS_ICON = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" x
 </svg>
 `;
 
-const TIPS = [
-  { name: "Sarah Johnson", amount: 565, color: "#295086" },
-  { name: "Emma Wilson", amount: 80, color: "#236AD1" },
-  { name: "Olivia Martinez", amount: 35, color: "#007BFF" },
+const DEFAULT_TIPS = [];
+
+const DASHBOARD_LEAVE_LIMIT = 6;
+const DASHBOARD_TIPS_LIMIT = 3;
+const PENDING_LEAVE_STATUS = 3;
+
+const LEAVE_STATUS_META = {
+  1: { label: "Approved", tone: "approved" },
+  2: { label: "Rejected", tone: "rejected" },
+  3: { label: "Pending", tone: "pending" },
+  approved: { label: "Approved", tone: "approved" },
+  rejected: { label: "Rejected", tone: "rejected" },
+  pending: { label: "Pending", tone: "pending" },
+};
+
+const TIP_COLORS = ["#295086", "#236AD1", "#007BFF", "#12A150", "#9333EA", "#E5A50A"];
+
+const AVATAR_COLORS = [
+  "#295086",
+  "#4F9CFF",
+  "#E8A05A",
+  "#4A9D77",
+  "#8B6FD4",
+  "#D4B04A",
 ];
 
-const PAYROLL_RING_R = 74;
-const PAYROLL_RING_CIRC = 2 * Math.PI * PAYROLL_RING_R;
-const PAYROLL_RING_PROGRESS = 0.74;
+const formatMetricValue = (value) => {
+  if (value == null || value === "") return "0";
+  return String(value);
+};
 
-const LEAVE_REQUESTS = [
-  {
-    id: 1,
-    name: "Emma Wilson",
-    initials: "EW",
-    avatarBg: "#4F9CFF",
-    type: "Paid",
-    typeTone: "paid",
-    duration: "3 days",
-    dates: "Jul 28 – Jul 30",
-    status: "Pending",
-    statusTone: "pending",
-  },
-  {
-    id: 2,
-    name: "Olivia Martinez",
-    initials: "OM",
-    avatarBg: "#E8A05A",
-    type: "Unpaid",
-    typeTone: "unpaid",
-    duration: "1 day",
-    dates: "Jul 29",
-    status: "Approved",
-    statusTone: "approved",
-  },
-  {
-    id: 3,
-    name: "James Rodriguez",
-    initials: "JR",
-    avatarBg: "#4A9D77",
-    type: "Casual",
-    typeTone: "casual",
-    duration: "2 days",
-    dates: "Aug 1 – Aug 2",
-    status: "Pending",
-    statusTone: "pending",
-  },
-  {
-    id: 4,
-    name: "Sarah Johnson",
-    initials: "SJ",
-    avatarBg: "#8B6FD4",
-    type: "Paid",
-    typeTone: "paid",
-    duration: "5 days",
-    dates: "Aug 4 – Aug 8",
-    status: "Rejected",
-    statusTone: "rejected",
-  },
-  {
-    id: 5,
-    name: "Maria Christopher",
-    initials: "MC",
-    avatarBg: "#D4B04A",
-    type: "Paid",
-    typeTone: "paid",
-    duration: "1 day",
-    dates: "Aug 10",
-    status: "Pending",
-    statusTone: "pending",
-  },
-  {
-    id: 6,
-    name: "Alex Harper",
-    initials: "AH",
-    avatarBg: "#295086",
-    type: "Casual",
-    typeTone: "casual",
-    duration: "2 days",
-    dates: "Aug 12 – Aug 13",
-    status: "Approved",
-    statusTone: "approved",
-  },
-];
+const formatCurrency = (value) =>
+  `$${Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: Number.isInteger(Number(value)) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
 
-const PayrollLineChart = () => (
-  <HrChartWrap>
-    <svg viewBox="0 0 640 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Payroll summary chart">
-      <line x1="40" y1="200" x2="620" y2="200" stroke="#E6EEF7" />
-      <line x1="40" y1="150" x2="620" y2="150" stroke="#F1F5F9" />
-      <line x1="40" y1="100" x2="620" y2="100" stroke="#F1F5F9" />
-      <line x1="40" y1="50" x2="620" y2="50" stroke="#F1F5F9" />
-      <path
-        d="M40 160 C110 150, 150 120, 210 130 C270 140, 310 80, 370 90 C430 100, 470 60, 530 70 C570 76, 600 90, 620 95"
-        stroke="#95CCD5"
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
-      />
-      <path
-        d="M40 170 C110 165, 150 145, 210 150 C270 155, 310 110, 370 105 C430 100, 470 55, 530 50 C570 48, 600 70, 620 78"
-        stroke="#295086"
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
-      />
-      <circle cx="470" cy="55" r="6" fill="#295086" />
-      <rect x="390" y="12" width="120" height="34" rx="8" fill="#fff" stroke="#E6EEF7" />
-      <text x="450" y="34" textAnchor="middle" fill="#295086" fontSize="12" fontWeight="600">
-        $20,000 Net Salary
-      </text>
-      <text x="40" y="224" fill="#8391A1" fontSize="11">Jan 26</text>
-      <text x="150" y="224" fill="#8391A1" fontSize="11">Feb 26</text>
-      <text x="260" y="224" fill="#8391A1" fontSize="11">Mar 26</text>
-      <text x="370" y="224" fill="#8391A1" fontSize="11">Apr 26</text>
-      <text x="480" y="224" fill="#8391A1" fontSize="11">May 26</text>
-      <text x="575" y="224" fill="#8391A1" fontSize="11">Jul 26</text>
-    </svg>
-  </HrChartWrap>
-);
+const getInitials = (name = "") =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "?";
 
-const TipsDonut = () => {
-  const total = TIPS.reduce((sum, tip) => sum + tip.amount, 0);
-  const radius = 68;
-  const circumference = 2 * Math.PI * radius;
-  const gap = 6;
-  let offset = 0;
+const normalizeStatusTone = (value) => {
+  const key = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+  if (key === "approved") return "approved";
+  if (key === "rejected") return "rejected";
+  if (key === "pending") return "pending";
+  if (key === "paid") return "paid";
+  if (key === "unpaid") return "unpaid";
+  if (key === "casual") return "casual";
+  return key || "pending";
+};
+
+const extractArray = (payload, keys = []) => {
+  if (Array.isArray(payload)) return payload;
+  for (const key of keys) {
+    if (Array.isArray(payload?.[key])) return payload[key];
+  }
+  return [];
+};
+
+const getTherapistName = (item = {}) => {
+  const employee =
+    typeof item.employee === "object" && item.employee ? item.employee : null;
 
   return (
-    <svg viewBox="0 0 180 180" role="img" aria-label="Tips distribution">
-      {TIPS.map((tip) => {
-        const rawLength = (tip.amount / total) * circumference;
-        const length = Math.max(rawLength - gap, 1);
-        const dashOffset = -offset;
-        offset += rawLength;
-        return (
-          <circle
-            key={tip.name}
-            cx="90"
-            cy="90"
-            r={radius}
-            fill="none"
-            stroke={tip.color}
-            strokeWidth="22"
-            strokeLinecap="butt"
-            strokeDasharray={`${length} ${circumference - length}`}
-            strokeDashoffset={dashOffset}
-            transform="rotate(-90 90 90)"
-          />
-        );
-      })}
-    </svg>
+    item.employeeName ||
+    item.employee_name ||
+    item.therapistName ||
+    item.therapist_name ||
+    item.name ||
+    item.fullName ||
+    (typeof item.employee === "string" ? item.employee : "") ||
+    employee?.name ||
+    employee?.fullName ||
+    [employee?.firstName, employee?.lastName].filter(Boolean).join(" ") ||
+    item.therapist?.name ||
+    "Therapist"
   );
 };
 
+const normalizeTipDistribution = (item = {}, index = 0) => {
+  const id =
+    item.id ??
+    item._id ??
+    item.employeeId ??
+    item.employee_id ??
+    item.employee?.id ??
+    `tip-${index}`;
+  const name = getTherapistName(item);
+
+  return {
+    id,
+    name,
+    amount: Number(
+      item.totalEarnedTips ??
+        item.totalTips ??
+        item.totalTipAmount ??
+        item.tipAmount ??
+        item.highestTip ??
+        item.highest_tip ??
+        item.amount ??
+        0
+    ),
+    color: TIP_COLORS[index % TIP_COLORS.length],
+  };
+};
+
+const normalizeLeaveStatus = (value) => {
+  if (value == null || value === "") {
+    return LEAVE_STATUS_META.pending;
+  }
+  if (typeof value === "number" || /^\d+$/.test(String(value).trim())) {
+    return LEAVE_STATUS_META[Number(value)] || LEAVE_STATUS_META.pending;
+  }
+  const key = String(value).trim().toLowerCase();
+  return LEAVE_STATUS_META[key] || LEAVE_STATUS_META.pending;
+};
+
+const capitalize = (value = "") => {
+  const text = String(value).trim();
+  if (!text) return "";
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+};
+
+const formatLeaveDates = (start, end) => {
+  const startMoment = start ? moment(start) : null;
+  const endMoment = end ? moment(end) : null;
+
+  if (startMoment?.isValid() && endMoment?.isValid()) {
+    if (startMoment.isSame(endMoment, "day")) {
+      return startMoment.format("MMM D");
+    }
+    return `${startMoment.format("MMM D")} – ${endMoment.format("MMM D")}`;
+  }
+
+  if (startMoment?.isValid()) return startMoment.format("MMM D");
+  return "-";
+};
+
+const formatLeaveDuration = (days) => {
+  const count = Number(days) || 0;
+  if (!count) return "-";
+  return count === 1 ? "1 day" : `${count} days`;
+};
+
+const normalizeLeaveRequestRow = (item = {}, index = 0) => {
+  const employee =
+    typeof item.employee === "object" && item.employee ? item.employee : null;
+  const employeeId =
+    item.employeeId ??
+    item.employee_id ??
+    employee?.id ??
+    employee?._id ??
+    null;
+  const name =
+    item.employeeName ||
+    item.employee_name ||
+    item.name ||
+    employee?.name ||
+    employee?.fullName ||
+    [employee?.firstName, employee?.lastName].filter(Boolean).join(" ") ||
+    "Employee";
+  const start =
+    item.startDate || item.start_date || item.start || item.fromDate || "";
+  const end = item.endDate || item.end_date || item.end || item.toDate || "";
+  const startMoment = start ? moment(start) : null;
+  const endMoment = end ? moment(end) : null;
+  const computedDays =
+    startMoment?.isValid() && endMoment?.isValid()
+      ? endMoment.diff(startMoment, "days") + 1
+      : 0;
+  const statusMeta = normalizeLeaveStatus(
+    item.leaveStatus ?? item.leave_status ?? item.status
+  );
+  const leaveType = item.leaveType || item.leave_type || item.type || "";
+
+  return {
+    id: item.id ?? item._id ?? item.leaveId ?? `leave-${index}`,
+    name,
+    initials: getInitials(name),
+    avatarBg: AVATAR_COLORS[Number(employeeId || index) % AVATAR_COLORS.length],
+    type: capitalize(leaveType) || "-",
+    typeTone: normalizeStatusTone(leaveType),
+    duration: formatLeaveDuration(
+      item.days ?? item.totalDays ?? item.total_days ?? computedDays
+    ),
+    dates: formatLeaveDates(start, end),
+    status: statusMeta.label,
+    statusTone: statusMeta.tone,
+  };
+};
+
+const normalizePayrollCycles = (summary = {}) => {
+  const payrollSummary = summary.payrollSummary ?? summary.payroll_summary ?? {};
+  const cycles = extractArray(payrollSummary, ["cycles", "cycleList", "cycle_list"]);
+
+  return cycles.map((item) => ({
+    month: item.month || item.label || item.period || "-",
+    netSalary: Number(item.netSalary ?? item.net_salary ?? item.amount ?? 0),
+    tips: Number(item.tips ?? item.tipAmount ?? item.totalTips ?? 0),
+  }));
+};
+
+const buildMetrics = (summary = {}) => {
+  const employeeSummary =
+    summary.employeeSummary ?? summary.employee_summary ?? summary;
+
+  return [
+    {
+      label: "Total Employees",
+      value: formatMetricValue(employeeSummary.totalEmployees ?? 0),
+      icon: USERS_ICON,
+    },
+    {
+      label: "Active Employees",
+      value: formatMetricValue(employeeSummary.activeEmployees ?? 0),
+      icon: USERS_ICON,
+    },
+    {
+      label: "On Leave",
+      value: formatMetricValue(employeeSummary.onLeave ?? 0),
+      icon: CALENDAR_ICON,
+    },
+    {
+      label: "Present Today",
+      value: formatMetricValue(employeeSummary.presentToday ?? 0),
+      icon: CLOCK_ICON,
+    },
+  ];
+};
+
+const formatPayrollDate = (value) => {
+  if (!value) return "-";
+  const parsed = moment(value);
+  return parsed.isValid() ? parsed.format("MMM D, YYYY") : String(value);
+};
+
+const PayrollLineChart = ({ cycles = [], loading = false }) => {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+
+  const chartData = useMemo(
+    () => ({
+      labels: cycles.map((cycle) => cycle.month),
+      datasets: [
+        {
+          label: "Net Salary",
+          data: cycles.map((cycle) => cycle.netSalary),
+          borderColor: "#295086",
+          backgroundColor: "rgba(41, 80, 134, 0.08)",
+          pointBackgroundColor: "#295086",
+          pointBorderColor: "#ffffff",
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 3,
+          fill: true,
+          tension: 0.35,
+        },
+
+        {
+          label: "Tips",
+          data: cycles.map((cycle) => cycle.tips),
+          borderColor: "#007BFF",
+          backgroundColor: "transparent",
+          pointBackgroundColor: "#007BFF",
+          pointBorderColor: "#ffffff",
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 3,
+          fill: false,
+          tension: 0.35,
+        },
+      ],
+    }),
+    [cycles]
+  );
+
+  const chartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: "index",
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: "top",
+          align: "end",
+          labels: {
+            usePointStyle: true,
+            pointStyle: "circle",
+            color: "#64748B",
+            boxWidth: 8,
+            boxHeight: 8,
+            padding: 16,
+          },
+        },
+        tooltip: {
+          backgroundColor: "#ffffff",
+          titleColor: "#295086",
+          bodyColor: "#295086",
+          borderColor: "#E6EEF7",
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: (context) =>
+              `${context.dataset.label}: ${formatCurrency(context.parsed.y ?? 0)}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: {
+            display: false,
+          },
+          ticks: {
+            color: "#8391A1",
+            font: {
+              size: 11,
+            },
+          },
+          border: {
+            display: false,
+          },
+        },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: "#F1F5F9",
+          },
+          ticks: {
+            color: "#8391A1",
+            font: {
+              size: 11,
+            },
+            callback: (value) => `$${Number(value).toLocaleString("en-US")}`,
+          },
+          border: {
+            display: false,
+          },
+        },
+      },
+    }),
+    []
+  );
+
+  useEffect(() => {
+    if (!canvasRef.current || loading) return;
+
+    if (chartRef.current) {
+      chartRef.current.data = chartData;
+      chartRef.current.options = chartOptions;
+      chartRef.current.update();
+      return;
+    }
+
+    chartRef.current = new ChartJS(canvasRef.current, {
+      type: "line",
+      data: chartData,
+      options: chartOptions,
+    });
+
+    return () => {
+      chartRef.current?.destroy();
+      chartRef.current = null;
+    };
+  }, [chartData, chartOptions, loading]);
+
+  if (loading) {
+    return (
+      <HrChartWrap>
+        <Skeleton height={220} />
+      </HrChartWrap>
+    );
+  }
+
+  if (!cycles.length) {
+    return (
+      <HrChartWrap>
+        <p style={{ color: "#8391A1", fontSize: 14, margin: 0 }}>
+          No payroll chart data available.
+        </p>
+      </HrChartWrap>
+    );
+  }
+
+  return (
+    <HrChartWrap>
+      <canvas ref={canvasRef} aria-label="Payroll summary chart" />
+    </HrChartWrap>
+  );
+};
+
+const TipsDoughnutChart = ({ tips = DEFAULT_TIPS, loading = false }) => {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+
+  const chartData = useMemo(
+    () => ({
+      labels: tips.map((tip) => tip.name),
+      datasets: [
+        {
+          data: tips.map((tip) => tip.amount),
+          backgroundColor: tips.map((tip) => tip.color),
+          borderWidth: 0,
+          hoverOffset: 6,
+        },
+      ],
+    }),
+    [tips]
+  );
+
+  const chartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "72%",
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          backgroundColor: "#ffffff",
+          titleColor: "#295086",
+          bodyColor: "#295086",
+          borderColor: "#E6EEF7",
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: (context) =>
+              `${context.label}: ${formatCurrency(context.parsed ?? 0)}`,
+          },
+        },
+      },
+    }),
+    []
+  );
+
+  useEffect(() => {
+    if (!canvasRef.current || loading) return;
+
+    if (chartRef.current) {
+      chartRef.current.data = chartData;
+      chartRef.current.options = chartOptions;
+      chartRef.current.update();
+      return;
+    }
+
+    chartRef.current = new ChartJS(canvasRef.current, {
+      type: "doughnut",
+      data: chartData,
+      options: chartOptions,
+    });
+
+    return () => {
+      chartRef.current?.destroy();
+      chartRef.current = null;
+    };
+  }, [chartData, chartOptions, loading]);
+
+  if (loading) {
+    return <Skeleton circle width={180} height={180} />;
+  }
+
+  if (!tips.length) {
+    return (
+      <p style={{ color: "#8391A1", fontSize: 14, margin: 0 }}>
+        No tips data available.
+      </p>
+    );
+  }
+
+  return <canvas ref={canvasRef} aria-label="Tips distribution chart" />;
+};
+
 export default function HrDashboard({ onOpenTab }) {
+  const [dashboardSummary, setDashboardSummary] = useState(null);
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [tips, setTips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [leavesLoading, setLeavesLoading] = useState(true);
+  const [tipsLoading, setTipsLoading] = useState(true);
+
+  const fetchDashboardSummary = useCallback(async (isCancelled = () => false) => {
+    try {
+      setLoading(true);
+      const res = await axiosApiCall.get(API_ROUTER?.HR_DASHBOARD_SUMMARY);
+      if (isCancelled()) return;
+
+      const summary = res?.data?.data ?? res?.data ?? null;
+      setDashboardSummary(summary);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("HR dashboard summary error", error);
+      if (!isCancelled()) setDashboardSummary(null);
+    } finally {
+      if (!isCancelled()) setLoading(false);
+    }
+  }, []);
+
+  const fetchPendingLeaves = useCallback(async (isCancelled = () => false) => {
+    try {
+      setLeavesLoading(true);
+      const params = new URLSearchParams();
+      params.set("leaveStatus", String(PENDING_LEAVE_STATUS));
+      params.set("page", "1");
+      params.set("limit", String(DASHBOARD_LEAVE_LIMIT));
+
+      const res = await axiosApiCall.get(
+        `${API_ROUTER?.HR_LEAVE_LIST}?${params.toString()}`
+      );
+      if (isCancelled()) return;
+
+      const responseBody = res?.data ?? {};
+      const leaveData = responseBody?.data ?? {};
+      const rawList = Array.isArray(leaveData?.list)
+        ? leaveData.list
+        : extractArray(leaveData);
+
+      setLeaveRequests(
+        rawList
+          .slice(0, DASHBOARD_LEAVE_LIMIT)
+          .map(normalizeLeaveRequestRow)
+      );
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("HR dashboard pending leaves error", error);
+      if (!isCancelled()) setLeaveRequests([]);
+    } finally {
+      if (!isCancelled()) setLeavesLoading(false);
+    }
+  }, []);
+
+  const fetchTipsSummary = useCallback(async (isCancelled = () => false) => {
+    try {
+      setTipsLoading(true);
+      const res = await axiosApiCall.get(
+        API_ROUTER?.HR_DASHBOARD_HIGHEST_TIP_EMPLOYEE
+      );
+      console.log("res fetchTipsSummary", res);
+      if (isCancelled()) return;
+
+      const responseBody = res?.data ?? {};
+      const tipsData = responseBody?.data ?? responseBody;
+      const rawList = Array.isArray(tipsData)
+        ? tipsData
+        : extractArray(tipsData, [
+            "list",
+            "employees",
+            "therapists",
+            "highestTipEmployees",
+            "highest_tip_employees",
+            "tips",
+          ]);
+
+      const looksLikeTipRow =
+        !rawList.length &&
+        tipsData &&
+        typeof tipsData === "object" &&
+        (tipsData.employeeName ||
+          tipsData.employee_name ||
+          tipsData.therapistName ||
+          tipsData.name ||
+          tipsData.employee ||
+          tipsData.totalEarnedTips != null ||
+          tipsData.totalTips != null ||
+          tipsData.tipAmount != null);
+
+      setTips(
+        (rawList.length ? rawList : looksLikeTipRow ? [tipsData] : [])
+          .filter((item) => item && typeof item === "object")
+          .slice(0, DASHBOARD_TIPS_LIMIT)
+          .map(normalizeTipDistribution)
+      );
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("HR dashboard highest tip employee error", error);
+      if (!isCancelled()) setTips([]);
+    } finally {
+      if (!isCancelled()) setTipsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchDashboardSummary(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchDashboardSummary]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPendingLeaves(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchPendingLeaves]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTipsSummary(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchTipsSummary]);
+
+  const metrics = useMemo(
+    () => (dashboardSummary ? buildMetrics(dashboardSummary) : DEFAULT_METRICS),
+    [dashboardSummary]
+  );
+
+  const payrollCycles = useMemo(
+    () => normalizePayrollCycles(dashboardSummary || {}),
+    [dashboardSummary]
+  );
+
+  const payrollSummary =
+    dashboardSummary?.payrollSummary ?? dashboardSummary?.payroll_summary ?? {};
+
+  const payrollTotal = formatCurrency(payrollSummary.totalPayrollNetSalary ?? 0);
+
+  const upcomingPayroll =
+    dashboardSummary?.upcomingPayroll ?? dashboardSummary?.upcoming_payroll ?? {};
+
+  const daysLeft = upcomingPayroll.daysLeft ?? upcomingPayroll.days_left ?? 0;
+
+  const nextPayrollDate = formatPayrollDate(upcomingPayroll.nextPayrollDate);
+
   return (
     <>
       <HrPageHeader>
@@ -273,20 +779,16 @@ export default function HrDashboard({ onOpenTab }) {
       </HrPageHeader>
 
       <HrMetricsGrid>
-        {METRICS.map((metric) => (
+        {metrics.map((metric) => (
           <HrMetricCard key={metric.label}>
             <HrMetricTop>
               <HrMetricLabel>{metric.label}</HrMetricLabel>
-
-                <InlineSVG src={metric.icon} />
-
+              <InlineSVG src={metric.icon} />
             </HrMetricTop>
             <HrMetricBottom>
-              <HrMetricValue>{metric.value}</HrMetricValue>
-              <HrMetricTrend>
-                <InlineSVG src={SPARKLINE} />
-                +12%
-              </HrMetricTrend>
+              <HrMetricValue>
+                {loading ? <Skeleton width={48} height={28} /> : metric.value}
+              </HrMetricValue>
             </HrMetricBottom>
           </HrMetricCard>
         ))}
@@ -301,10 +803,12 @@ export default function HrDashboard({ onOpenTab }) {
             </HrCardTitleBlock>
             <HrCardAmount>
               <span className="amount-label">Total</span>
-              <span className="amount-value">$49,057.01</span>
+              <span className="amount-value">
+                {loading ? <Skeleton width={120} height={24} /> : payrollTotal}
+              </span>
             </HrCardAmount>
           </HrCardHeader>
-          <PayrollLineChart />
+          <PayrollLineChart cycles={payrollCycles} loading={loading} />
         </HrCard>
 
         <HrUpcomingCard>
@@ -316,14 +820,18 @@ export default function HrDashboard({ onOpenTab }) {
             <HrProgressRing>
              <InlineSVG src={PAYROLL_RING_ICON} className="ring-svg" />
               <div className="ring-content">
-                <span className="ring-days">8</span>
+                <span className="ring-days">
+                  {loading ? <Skeleton width={24} height={28} /> : daysLeft}
+                </span>
                 <span className="ring-label">days left</span>
               </div>
             </HrProgressRing>
           </HrProgressWrap>
           <HrUpcomingFooter>
             <p className="next-label">Next payroll date</p>
-            <p className="next-date">Aug 1, 2026</p>
+            <p className="next-date">
+              {loading ? <Skeleton width={120} height={20} /> : nextPayrollDate}
+            </p>
             <HrAccentButton type="button" onClick={() => onOpenTab?.("payroll")}>
               Prepare Payroll ›
             </HrAccentButton>
@@ -334,29 +842,35 @@ export default function HrDashboard({ onOpenTab }) {
       <HrBottomGrid>
         <HrCard>
           <HrTipsHeader>
-            <InlineSVG src={TIPS_ICON} />
-            <HrCardTitleBlock>
-              <h3>Tips Distributed</h3>
-              <p>By therapist</p>
-            </HrCardTitleBlock>
+            <div className="tips-header-left">
+              <InlineSVG src={TIPS_ICON} />
+              <HrCardTitleBlock>
+                <h3>Tips Distributed</h3>
+                <p>By therapist</p>
+              </HrCardTitleBlock>
+            </div>
+            <HrViewAllButton type="button" onClick={() => onOpenTab?.("tips")}>
+              View All
+            </HrViewAllButton>
           </HrTipsHeader>
           <HrTipsChart>
             <div className="donut-wrap">
-              <TipsDonut />
+              <TipsDoughnutChart tips={tips} loading={tipsLoading} />
             </div>
             <HrTipsLegend>
-              {TIPS.map((tip) => (
-                <li key={tip.name}>
-                  <span className="dot" style={{ background: tip.color }} />
-                  <span className="name">{tip.name}</span>
-                  <strong>${tip.amount}</strong>
-                </li>
-              ))}
+              {!tipsLoading &&
+                tips.map((tip) => (
+                  <li key={tip.id}>
+                    <span className="dot" style={{ background: tip.color }} />
+                    <span className="name">{tip.name}</span>
+                    <strong>{formatCurrency(tip.amount)}</strong>
+                  </li>
+                ))}
             </HrTipsLegend>
           </HrTipsChart>
         </HrCard>
 
-        <HrCard>
+        <HrCard $stretch>
           <HrCardHeader>
             <HrCardTitleBlock>
               <h3>Pending Leave Requests</h3>
@@ -365,7 +879,10 @@ export default function HrDashboard({ onOpenTab }) {
               View All
             </HrViewAllButton>
           </HrCardHeader>
-          <HrTableWrap>
+          <HrTableWrap
+            $stretch
+            $empty={!leavesLoading && leaveRequests.length === 0}
+          >
             <HrTable>
               <thead>
                 <tr>
@@ -377,37 +894,63 @@ export default function HrDashboard({ onOpenTab }) {
                   <th>Action</th>
                 </tr>
               </thead>
-              <tbody>
-                {LEAVE_REQUESTS.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <HrNameCell>
-                        <HrAvatar $bg={row.avatarBg}>{row.initials}</HrAvatar>
-                        {row.name}
-                      </HrNameCell>
-                    </td>
-                    <td>
-                      <HrPill $tone={row.typeTone}>{row.type}</HrPill>
-                    </td>
-                    <td>{row.duration}</td>
-                    <td>{row.dates}</td>
-                    <td>
-                      <HrPill $tone={row.statusTone}>{row.status}</HrPill>
-                    </td>
-                    <td>
-                      <HrActionButtons>
-                        <button type="button" className="approve" aria-label={`Approve ${row.name}`}>
-                          <InlineSVG src={CHECK_ICON} />
-                        </button>
-                        <button type="button" className="reject" aria-label={`Reject ${row.name}`}>
-                          <InlineSVG src={CROSS_ICON} />
-                        </button>
-                      </HrActionButtons>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              {leavesLoading || leaveRequests.length > 0 ? (
+                <tbody>
+                  {leavesLoading
+                    ? Array.from({ length: 4 }).map((_, index) => (
+                        <tr key={`leave-skeleton-${index}`}>
+                          {Array.from({ length: 6 }).map((__, colIndex) => (
+                            <td key={colIndex}>
+                              <Skeleton
+                                width={colIndex === 0 ? 140 : 70}
+                                height={16}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    : leaveRequests.map((row) => (
+                        <tr key={row.id}>
+                          <td>
+                            <HrNameCell>
+                              <HrAvatar $bg={row.avatarBg}>{row.initials}</HrAvatar>
+                              {row.name}
+                            </HrNameCell>
+                          </td>
+                          <td>
+                            <HrPill $tone={row.typeTone}>{row.type}</HrPill>
+                          </td>
+                          <td>{row.duration}</td>
+                          <td>{row.dates}</td>
+                          <td>
+                            <HrPill $tone={row.statusTone}>{row.status}</HrPill>
+                          </td>
+                          <td>
+                            <HrActionButtons>
+                              <button
+                                type="button"
+                                className="approve"
+                                aria-label={`Approve ${row.name}`}
+                              >
+                                <InlineSVG src={CHECK_ICON} />
+                              </button>
+                              <button
+                                type="button"
+                                className="reject"
+                                aria-label={`Reject ${row.name}`}
+                              >
+                                <InlineSVG src={CROSS_ICON} />
+                              </button>
+                            </HrActionButtons>
+                          </td>
+                        </tr>
+                      ))}
+                </tbody>
+              ) : null}
             </HrTable>
+            {!leavesLoading && leaveRequests.length === 0 ? (
+              <div className="empty-state">No pending leave requests.</div>
+            ) : null}
           </HrTableWrap>
         </HrCard>
       </HrBottomGrid>

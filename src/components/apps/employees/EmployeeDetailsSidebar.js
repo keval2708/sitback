@@ -29,10 +29,9 @@ const DELETE_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"
 `;
 const EMAIL_ICON = `<svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 5.25h12a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 14.25v-7.5A1.5 1.5 0 0 1 3 5.25Z" stroke="currentColor" stroke-width="1.3"/><path d="m2.25 6.75 6.75 4.5 6.75-4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const PHONE_ICON = `<svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.3 3.75H4.65A1.65 1.65 0 0 0 3 5.4c0 6.075 4.875 10.95 10.95 10.95a1.65 1.65 0 0 0 1.65-1.65v-1.65l-2.888-.722a1.35 1.35 0 0 0-1.372.405l-.87.87a8.55 8.55 0 0 1-3.998-3.997l.87-.87a1.35 1.35 0 0 0 .405-1.373L6.3 3.75Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const LOCATION_ICON = `<svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 9.75a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" stroke="currentColor" stroke-width="1.3"/><path d="M9 2.25a5.25 5.25 0 0 1 5.25 5.25c0 3.938-5.25 8.25-5.25 8.25S3.75 11.438 3.75 7.5A5.25 5.25 0 0 1 9 2.25Z" stroke="currentColor" stroke-width="1.3"/></svg>`;
 const USER_ICON = `<svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.75 15a5.25 5.25 0 0 1 10.5 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`;
 const CALENDAR_ICON = `<svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.25 3.75h-1.5V3a.75.75 0 1 0-1.5 0v.75h-4.5V3a.75.75 0 0 0-1.5 0v.75h-1.5A1.5 1.5 0 0 0 2.25 5.25v9a1.5 1.5 0 0 0 1.5 1.5h10.5a1.5 1.5 0 0 0 1.5-1.5v-9a1.5 1.5 0 0 0-1.5-1.5Zm0 10.5H3.75V7.5h10.5v6.75Z" fill="currentColor"/></svg>`;
-const BANK_ICON = `<svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7.5h12M4.5 7.5V13.5M7.5 7.5V13.5M10.5 7.5V13.5M13.5 7.5V13.5M2.25 13.5h13.5M9 3l6.75 4.5H2.25L9 3Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const BANK_ICON = `<svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7.5 9 3.75 15 7.5M4.5 7.5v5.25M9 7.5v5.25M13.5 7.5v5.25M3 12.75h12M3.75 14.25h10.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 const formatCurrency = (value) =>
   `$${Number(value || 0).toLocaleString("en-US")}`;
@@ -44,6 +43,29 @@ const formatJoiningDate = (value) => {
     return `${day}/${month}/${year}`;
   }
   return value;
+};
+
+const formatPayrollDate = (value) => {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(String(value))) {
+    const [year, month, day] = String(value).slice(0, 10).split("-");
+    return `${day}/${month}/${year}`;
+  }
+  return String(value);
+};
+
+const formatPayrollDateRange = (payroll = {}) => {
+  const start = formatPayrollDate(
+    payroll.startDate || payroll.start_date || payroll.fromDate
+  );
+  const end = formatPayrollDate(
+    payroll.endDate || payroll.end_date || payroll.toDate
+  );
+
+  if (start && end) return `${start} → ${end}`;
+  if (start) return start;
+  if (end) return end;
+  return "-";
 };
 
 export default function EmployeeDetailsSidebar({
@@ -61,19 +83,22 @@ export default function EmployeeDetailsSidebar({
     { label: "Approved (days)", value: 6 },
   ];
 
-  const payroll = employee.latestPayroll || {
-    startDate: "2026-07-25",
-    endDate: "2026-07-27",
-    status: "Processed",
-    workingDays: 0,
-    overtimeHrs: 0,
-    amount: employee.monthly || 0,
-  };
+  const payroll = employee.latestPayroll || {};
+  const payrollDates = formatPayrollDateRange(payroll);
+  const payrollStatus = payroll.status || "-";
+  const payrollWorkingDays = Number(payroll.workingDays ?? 0);
+  const payrollOvertimeHrs = Number(payroll.overtimeHrs ?? 0);
+  const payrollAmount = Number(payroll.amount ?? employee.monthly ?? 0);
+
+  const bankAccountNumber =
+    employee.bankDetails?.account_number ||
+    employee.accountNumber ||
+    employee.account_number ||
+    "-";
 
   const details = [
     { icon: EMAIL_ICON, label: "Email", value: employee.email || "-" },
     { icon: PHONE_ICON, label: "Phone", value: employee.phone || "-" },
-    { icon: LOCATION_ICON, label: "Address", value: employee.address || "-" },
     {
       icon: USER_ICON,
       label: "Emergency Contact",
@@ -86,11 +111,12 @@ export default function EmployeeDetailsSidebar({
     },
     {
       icon: BANK_ICON,
-      label: "Bank Account",
-      value: employee.bankAccount || "-",
+      label: "Bank Account Number",
+      value: bankAccountNumber,
     },
   ];
 
+  console.log("employee", employee);
   return (
     <>
       <HrDrawerOverlay onClick={onClose} aria-hidden="true" />
@@ -154,7 +180,7 @@ export default function EmployeeDetailsSidebar({
             <HrPayGrid>
               <HrPayCard>
                 <span className="pay-value">
-                  {employee.salaryType || "Monthly"}
+                  {employee.salaryType === "monthly" ? "Monthly" : employee.salaryType === "hourly" ? "Hourly" : "-"}
                 </span>
                 <span className="pay-label">Salary Type</span>
               </HrPayCard>
@@ -183,18 +209,16 @@ export default function EmployeeDetailsSidebar({
             <HrPayrollCard>
               <div className="payroll-left">
                 <h3 className="payroll-label">Latest Payroll</h3>
-                <p className="payroll-dates">
-                  {payroll.startDate} → {payroll.endDate}
-                </p>
+                <p className="payroll-dates">{payrollDates}</p>
                 <p className="payroll-meta">
-                  {payroll.workingDays} working days · {payroll.overtimeHrs}{" "}
+                  {payrollWorkingDays} working days · {payrollOvertimeHrs}{" "}
                   Overtime hrs
                 </p>
               </div>
               <div className="payroll-right">
-                <span className="payroll-status">{payroll.status}</span>
+                <span className="payroll-status">{payrollStatus}</span>
                 <p className="payroll-amount">
-                  {formatCurrency(payroll.amount)}
+                  {formatCurrency(payrollAmount)}
                 </p>
               </div>
             </HrPayrollCard>

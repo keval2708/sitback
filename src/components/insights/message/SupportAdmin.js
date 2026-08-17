@@ -46,38 +46,48 @@ const SupportAdmin = ({ setUnreadCount }) => {
   const { login } = useSelector(authCheckSliceSelector);
   const { messageTab } = useSelector(messageCheckSliceSelector);
   const chatMessages = useRef([]);
-  // const activeChat = useRef(null);
   const chatContainerRef = useRef(null);
   const lastMessageRef = useRef(null);
+  const typingStopTimer = useRef(null);
 
-  const createChat = async (messageText) => {
+  const createChat = async (textValue) => {
+    const text = (textValue || "").trim();
+    if (!text || msgloading) return;
+
+    setMsgLoading(true);
+    setSendMessageClicked(true);
+    setMessageText("");
+    setTypingStatus(0);
+    if (typingStopTimer.current) {
+      clearTimeout(typingStopTimer.current);
+      typingStopTimer.current = null;
+    }
+    await useTypingStatus(0);
+
     const params = {
       mediaType: "text",
       fromUserId: login?.id,
       userId: 1, //admin_id
-      mediaContent: messageText.trim(),
+      mediaContent: text,
       chatBy: "serviceprovider",
     };
 
     try {
-      setMsgLoading(true);
       const res = await axiosApiCall.post(API_ROUTER?.CREATE_ADMIN_CHAT, params);
 
       if (!res?.status) {
-        return toaster(res?.data?.message, TOAST_TYPES.ERROR);
+        toaster(res?.data?.message, TOAST_TYPES.ERROR);
+        setMessageText(text);
       } else {
         const newMessage = res?.data?.result;
         chatMessages.current = [...chatMessages.current, newMessage];
-
-        // Reset the message text after successful submission
-        setMessageText("");
-        setSendMessageClicked(false); // Allow further submissions
       }
     } catch (error) {
       toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
+      setMessageText(text);
     } finally {
       setMsgLoading(false);
-      setSendMessageClicked(false); // Reset in case of error
+      setSendMessageClicked(false);
     }
   };
 
@@ -99,19 +109,16 @@ const SupportAdmin = ({ setUnreadCount }) => {
     }
   };
 
-  const useTypingStatus = async () => {
+  const useTypingStatus = async (status = typingStatus) => {
     const params = {
       fromUserId: login?.id,
       userId: 1,
-      typingStatus: typingStatus,
+      typingStatus: status,
     };
     try {
       const res = await axiosApiCall.post(API_ROUTER?.TYPING_ADMIN_CHAT, params);
       if (!res?.status) {
         return toaster(res?.data?.message, TOAST_TYPES.ERROR);
-      } else {
-        // setMessages(res?.data?.data);
-        // toaster(res?.data?.message, TOAST_TYPES.SUCCESS);
       }
     } catch (error) {
       toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
@@ -198,6 +205,9 @@ const SupportAdmin = ({ setUnreadCount }) => {
   };
 
   const socketHandler = async (msg) => {
+    if (msg.action == "userTyping" || msg.action == "userTypingStoped") {
+      return;
+    }
     if (msg.action == "message_from_admin_to_spa") {
       chatMessages.current = [...chatMessages.current, msg?.message];
       chatMessages.current = _.uniqBy(chatMessages.current, "id");
@@ -259,45 +269,72 @@ const SupportAdmin = ({ setUnreadCount }) => {
       setChatStatus('Offline')
     } else if (livestatus === 'userTyping') {
       setChatStatus("Typing...")
-    } else if (livestatus === 'adminTypingStoped') {
+    } else if (livestatus === 'userTypingStoped' || livestatus === 'adminTypingStoped') {
       setChatStatus("Online")
     }
   }, [livestatus, chatStatus]);
 
   useEffect(() => {
     if (messageTab == 'first') {
-      useTypingStatus();
-    }
-  }, [typingStatus, messageTab]);
-
-  useEffect(() => {
-    if (messageTab == 'first') {
       getUserChatList();
       getChatList();
     }
-    // createChat();
   }, [listDetail, messageTab]);
 
   const handleTyping = (e) => {
-    setMessageText(e.target.value);
-    if (e.target.value.length > 0) {
+    const value = e.target.value;
+    setMessageText(value);
+
+    if (typingStopTimer.current) {
+      clearTimeout(typingStopTimer.current);
+      typingStopTimer.current = null;
+    }
+
+    if (value.trim()) {
       setTypingStatus(1);
+      useTypingStatus(1);
+      typingStopTimer.current = setTimeout(() => {
+        setTypingStatus(0);
+        useTypingStatus(0);
+      }, 2000);
     } else {
       setTypingStatus(0);
+      useTypingStatus(0);
     }
-    useTypingStatus();
   };
 
   useEffect(() => {
-    if (window.io) {
-      window.io.socket.on("serviceprovider", async (message) => {
-        if (messageTab == 'first') {
-          setLiveStatus(message.action)
-          await socketHandler(message);
-        }
-      });
-    }
-  }, [window.io, messageTab]);
+    return () => {
+      if (typingStopTimer.current) {
+        clearTimeout(typingStopTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleSocketMessage = async (message) => {
+      if (messageTab != "first") return;
+      setLiveStatus(message?.action);
+      await socketHandler(message);
+    };
+
+    const attach = () => {
+      if (!window.io?.socket) return;
+      window.io.socket.off("serviceprovider", handleSocketMessage);
+      window.io.socket.off("message", handleSocketMessage);
+      window.io.socket.on("serviceprovider", handleSocketMessage);
+      window.io.socket.on("message", handleSocketMessage);
+    };
+
+    attach();
+    window.addEventListener("sitback-socket-ready", attach);
+
+    return () => {
+      window.removeEventListener("sitback-socket-ready", attach);
+      window.io?.socket?.off("serviceprovider", handleSocketMessage);
+      window.io?.socket?.off("message", handleSocketMessage);
+    };
+  }, [messageTab]);
 
   const handleCloseDeleteModal = () => {
     setShowDeleteModal(false);

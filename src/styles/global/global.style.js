@@ -3560,7 +3560,7 @@ export const GlobalStyle = createGlobalStyle`
             width: calc(100% - 20px);
             margin: auto;
             .modal-content{
-                background: #F1F0E4;
+                background: #FFF;
                 border: none;
                 border-radius: 8px;
             }
@@ -11273,4 +11273,13 @@ export const GlobalStyle = createGlobalStyle`
     .rc-time-picker-clear-icon{
       display: none;
     }
+
+  #hr-datepicker-portal {
+    position: relative;
+    z-index: 9999;
+  }
+
+  .hr-datepicker-portal-popper {
+    z-index: 9999 !important;
+  }
 `;

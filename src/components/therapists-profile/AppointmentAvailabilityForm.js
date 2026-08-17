@@ -64,6 +64,30 @@ const DEFAULT_FORM_VALUES = {
   note: false,
 };
 
+const parseScheduleTime = (timeValue, typeValue) => {
+  if (!timeValue) return null;
+
+  const timeStr = String(timeValue).trim();
+  const typeStr = typeValue ? String(typeValue).trim() : "";
+
+  if (/[ap]\.?m\.?/i.test(timeStr)) {
+    const parsed = moment(timeStr, ["hh:mm A", "h:mm A", "hh:mm:ss A", "h:mm:ss A"], true);
+    if (parsed.isValid()) return parsed;
+  }
+
+  if (typeStr) {
+    const combined = moment(
+      `${timeStr} ${typeStr}`,
+      ["hh:mm:ss a", "h:mm:ss a", "hh:mm a", "h:mm a"],
+      true
+    );
+    if (combined.isValid()) return combined;
+  }
+
+  const as24 = moment(timeStr, ["HH:mm:ss", "HH:mm"], true);
+  return as24.isValid() ? as24 : null;
+};
+
 const buildValidationSchema = () =>
   yup
     .object()
@@ -154,6 +178,7 @@ export default function AppointmentAvailabilityForm({ therapist }) {
   const [holidays, setHolidays] = useState([]);
   const [newHolidayName, setNewHolidayName] = useState("");
   const [newHolidayDate, setNewHolidayDate] = useState("");
+  const [newHolidayLeaveType, setNewHolidayLeaveType] = useState("paid");
   const [newHolidayIsClosed, setNewHolidayIsClosed] = useState(true);
   const [newHolidayStart, setNewHolidayStart] = useState("10:00 AM");
   const [newHolidayEnd, setNewHolidayEnd] = useState("02:00 PM");
@@ -198,7 +223,7 @@ export default function AppointmentAvailabilityForm({ therapist }) {
           id: h?.id,
           name: h?.reason || "",
           date: h?.leaveDate || "",
-          isOpen: h?.leaveType === "full_day" ? false : true,
+          isOpen: h?.leaveType === "full_day" ? false : Boolean(h?.start_time && h?.end_time),
           start_time: h?.start_time || "",
           end_time: h?.end_time || "",
         }));
@@ -250,7 +275,7 @@ export default function AppointmentAvailabilityForm({ therapist }) {
     const payload = {
       reason: newHolidayName.trim(),
       leaveDate: moment(newHolidayDate).format("YYYY-MM-DD"),
-      leaveType: newHolidayIsClosed ? "full_day" : "hours",
+      leaveType: newHolidayLeaveType || "paid",
       employeeId: therapist?.id,
     };
 
@@ -267,11 +292,13 @@ export default function AppointmentAvailabilityForm({ therapist }) {
         // Reset Form
         setNewHolidayName("");
         setNewHolidayDate("");
+        setNewHolidayLeaveType("paid");
         setNewHolidayIsClosed(true);
         await fetchHolidays();
       } else {
         setNewHolidayName("");
         setNewHolidayDate(null);
+        setNewHolidayLeaveType("paid");
         setNewHolidayIsClosed(true);
         toaster(res?.message || "Failed to add leave", TOAST_TYPES.ERROR);
       }
@@ -775,6 +802,19 @@ export default function AppointmentAvailabilityForm({ therapist }) {
                       />
                     </div>
 
+                    <div className="form-group-item">
+                      <label>Leave Type</label>
+                      <select
+                        className="form-control"
+                        value={newHolidayLeaveType}
+                        onChange={(e) => setNewHolidayLeaveType(e.target.value)}
+                        aria-label="Leave Type"
+                      >
+                        <option value="paid">Paid</option>
+                        <option value="unpaid">Unpaid</option>
+                      </select>
+                    </div>
+
                     <div className="form-group-item date-picker-item">
                       <label>Date</label>
                       <div className="react-datetime-picker">
@@ -1156,18 +1196,8 @@ function EditAvailabilityModal({ show, onHide, schedule, therapist, onSaved }) {
       const prevDays = schedule.days?.split(",") || [];
       const daysArray = WEEKDAYS.map((day) => prevDays.includes(day.value));
 
-      const startPreType = schedule.start_type || "AM";
-      const startPreTime = moment(schedule.start_time, "HH:mm:ss").format("h:mm");
-      const st = `${startPreTime} ${startPreType}`;
-
-      const endPreType = schedule.end_type || "PM";
-      const endPreTime = moment(schedule.end_time, "HH:mm:ss").format("h:mm");
-      const et = `${endPreTime} ${endPreType}`;
-
       const sDate = schedule.startDate ? moment(schedule.startDate).toDate() : null;
       const eDate = schedule.endDate ? moment(schedule.endDate).toDate() : null;
-
-
 
       reset({
         staff: isAvailable,
@@ -1176,8 +1206,14 @@ function EditAvailabilityModal({ show, onHide, schedule, therapist, onSaved }) {
         startdate: sDate,
         enddate: eDate,
         days: daysArray,
-        starttime: schedule.start_time ? moment(st, "h:mm a") : null,
-        endtime: schedule.end_time ? moment(et, "h:mm a") : null,
+        starttime: parseScheduleTime(
+          schedule.start_time || schedule.startTime,
+          schedule.start_type || schedule.startType
+        ),
+        endtime: parseScheduleTime(
+          schedule.end_time || schedule.endTime,
+          schedule.end_type || schedule.endType
+        ),
         note: false,
       });
     }

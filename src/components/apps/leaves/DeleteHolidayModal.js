@@ -17,10 +17,11 @@ const CLOSE_ICON = `<svg width="25" height="25" viewBox="0 0 25 25" fill="none" 
 </svg>
 `;
 
-export default function DeleteEmployeeModal({
+export default function DeleteHolidayModal({
   open,
   onClose,
   onConfirm,
+  holidayName = "",
   loading = false,
 }) {
   if (!open) return null;
@@ -29,7 +30,7 @@ export default function DeleteEmployeeModal({
     <HrModalOverlay
       role="dialog"
       aria-modal="true"
-      aria-labelledby="delete-employee-title"
+      aria-labelledby="delete-holiday-title"
       onClick={loading ? undefined : onClose}
     >
       <HrConfirmModalCard onClick={(event) => event.stopPropagation()}>
@@ -42,19 +43,20 @@ export default function DeleteEmployeeModal({
         >
           <InlineSVG src={CLOSE_ICON} />
         </HrModalClose>
-        <h2 id="delete-employee-title" className="confirm-title">
-          Are You Sure You Want To Delete This Employee?
+        <h2 id="delete-holiday-title" className="confirm-title">
+          Are You Sure You Want To Delete This Holiday?
         </h2>
-        {/* <p className="confirm-text">
-          Are You Sure You Want To Delete This Employee? This Action Cannot Be
-          Undone.
-        </p> */}
+        <p className="confirm-text">
+          {holidayName
+            ? `Are you sure you want to delete "${holidayName}"? This action cannot be undone.`
+            : "Are you sure you want to delete this holiday? This action cannot be undone."}
+        </p>
         <HrModalActions $center>
           <HrSecondaryButton type="button" onClick={onClose} disabled={loading}>
             Cancel
           </HrSecondaryButton>
           <HrDangerButton type="button" onClick={onConfirm} disabled={loading}>
-            {loading ? "Deleting..." : "Delete Employee"}
+            {loading ? "Deleting..." : "Delete Holiday"}
           </HrDangerButton>
         </HrModalActions>
       </HrConfirmModalCard>

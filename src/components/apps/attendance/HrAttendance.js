@@ -1,10 +1,14 @@
 "use client";
 
 import moment from "moment";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ReactDatePicker from "react-datepicker";
+import InfiniteScroll from "react-infinite-scroll-component";
+import Skeleton from "react-loading-skeleton";
+import "react-loading-skeleton/dist/skeleton.css";
 import InlineSVG from "svg-inline-react";
 import RecordAttendanceModal from "@/components/apps/attendance/RecordAttendanceModal";
+import { API_ROUTER } from "@/services/apiRouter";
 import {
   HrAvatar,
   HrDateField,
@@ -20,6 +24,7 @@ import {
   HrTableCard,
   HrTableWrap,
 } from "@/styles/pages/hr-module.style";
+import axiosApiCall from "@/utils/axios";
 
 const PLUS_ICON = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.33333 5.33333H5.33333V9.33333H4V5.33333H0V4H4V0H5.33333V4H9.33333V5.33333Z" fill="white"/></svg>`;
 const CALENDAR_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -28,6 +33,8 @@ const CALENDAR_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="non
 `;
 
 const TODAY = moment().format("YYYY-MM-DD");
+const PAGE_LIMIT = 10;
+const ATTENDANCE_SCROLL_ID = "hr-attendance-scroll";
 
 const STAT_ICONS = {
   employees: `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -53,201 +60,331 @@ const STAT_ICONS = {
 `,
 };
 
-const EMPLOYEES = [
-  { id: "sj", name: "Sarah Johnson", initials: "SJ", avatarBg: "#4F9CFF" },
-  { id: "om", name: "Olivia Martinez", initials: "OM", avatarBg: "#E8A05A" },
-  { id: "ew", name: "Emma Wilson", initials: "EW", avatarBg: "#8B6FD4" },
-  { id: "jr", name: "James Rodriguez", initials: "JR", avatarBg: "#4A9D77" },
-  { id: "mc", name: "Maria Christopher", initials: "MC", avatarBg: "#D4B04A" },
-  { id: "ah", name: "Alex Harper", initials: "AH", avatarBg: "#295086" },
-  { id: "lb", name: "Liam Brooks", initials: "LB", avatarBg: "#3B67A3" },
-  { id: "np", name: "Nora Patel", initials: "NP", avatarBg: "#C45C26" },
-  { id: "dk", name: "Daniel Kim", initials: "DK", avatarBg: "#007BFF" },
-  { id: "is", name: "Isabella Stone", initials: "IS", avatarBg: "#6B7280" },
-];
-
-const INITIAL_ROWS = [
-  {
-    id: 1,
-    employeeId: "sj",
-    date: TODAY,
-    checkIn: "09:00",
-    checkOut: "17:30",
-    workingHrs: 7.5,
-    breakMin: 60,
-    overtime: 30,
-    status: "Present",
-    statusTone: "present",
-  },
-  {
-    id: 2,
-    employeeId: "om",
-    date: TODAY,
-    checkIn: "09:00",
-    checkOut: "13:00",
-    workingHrs: 3.5,
-    breakMin: 30,
-    overtime: 0,
-    status: "Half Day",
-    statusTone: "halfday",
-  },
-  {
-    id: 3,
-    employeeId: "ew",
-    date: TODAY,
-    checkIn: "09:45",
-    checkOut: "18:00",
-    workingHrs: 7.5,
-    breakMin: 45,
-    overtime: 1,
-    status: "Late",
-    statusTone: "late",
-  },
-  {
-    id: 4,
-    employeeId: "jr",
-    date: TODAY,
-    checkIn: "08:55",
-    checkOut: "17:30",
-    workingHrs: 8,
-    breakMin: 45,
-    overtime: 5,
-    status: "Present",
-    statusTone: "present",
-  },
-  {
-    id: 5,
-    employeeId: "mc",
-    date: TODAY,
-    checkIn: "09:10",
-    checkOut: "18:15",
-    workingHrs: 8.5,
-    breakMin: 30,
-    overtime: 1,
-    status: "Late",
-    statusTone: "late",
-  },
-  {
-    id: 6,
-    employeeId: "ah",
-    date: TODAY,
-    checkIn: "09:00",
-    checkOut: "17:00",
-    workingHrs: 7,
-    breakMin: 60,
-    overtime: 0,
-    status: "Present",
-    statusTone: "present",
-  },
-  {
-    id: 7,
-    employeeId: "lb",
-    date: TODAY,
-    checkIn: "09:00",
-    checkOut: "18:00",
-    workingHrs: 8,
-    breakMin: 60,
-    overtime: 1,
-    status: "Present",
-    statusTone: "present",
-  },
-  {
-    id: 8,
-    employeeId: "np",
-    date: TODAY,
-    checkIn: "09:00",
-    checkOut: "13:30",
-    workingHrs: 4,
-    breakMin: 30,
-    overtime: 0,
-    status: "Half Day",
-    statusTone: "halfday",
-  },
-  {
-    id: 9,
-    employeeId: "dk",
-    date: TODAY,
-    checkIn: "08:50",
-    checkOut: "17:20",
-    workingHrs: 8,
-    breakMin: 30,
-    overtime: 0,
-    status: "Present",
-    statusTone: "present",
-  },
-];
-
 const STATUS_LABELS = {
   present: "Present",
   halfday: "Half Day",
   late: "Late",
+  absent: "Absent",
+};
+
+const AVATAR_COLORS = [
+  "#4F9CFF",
+  "#E8A05A",
+  "#8B6FD4",
+  "#4A9D77",
+  "#D4B04A",
+  "#295086",
+  "#3B67A3",
+  "#C45C26",
+  "#007BFF",
+  "#6B7280",
+];
+
+const extractRows = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.list)) return payload.list;
+  if (Array.isArray(payload?.rows)) return payload.rows;
+  if (Array.isArray(payload?.attendance)) return payload.attendance;
+  if (Array.isArray(payload?.employees)) return payload.employees;
+  return [];
+};
+
+const normalizeStatusTone = (value) => {
+  const key = String(value || "present")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+  if (key === "halfday" || key === "half-day") return "halfday";
+  if (key === "late") return "late";
+  if (key === "absent") return "absent";
+  return "present";
+};
+
+const formatDisplayTime = (value) => {
+  if (!value) return "-";
+  const parsed = moment(value, ["HH:mm", "HH:mm:ss", "hh:mm A"], true);
+  return parsed.isValid() ? parsed.format("HH:mm") : String(value);
+};
+
+const normalizeAttendanceRow = (item = {}, index = 0) => {
+  const employee =
+    typeof item.employee === "object" && item.employee ? item.employee : null;
+  const employeeId =
+    item.employeeId ??
+    item.employee_id ??
+    employee?.id ??
+    employee?._id ??
+    null;
+  const employeeName =
+    item.employeeName ||
+    item.employee_name ||
+    employee?.name ||
+    employee?.fullName ||
+    [employee?.firstName, employee?.lastName].filter(Boolean).join(" ") ||
+    "";
+  const statusTone = normalizeStatusTone(item.status);
+  const name = employeeName || "Employee";
+
+  return {
+    id: item.id ?? item._id ?? `${employeeId || "row"}-${item.date || index}`,
+    employeeId,
+    employeeName: name,
+    initials: name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join(""),
+    avatarBg: AVATAR_COLORS[Number(employeeId || index) % AVATAR_COLORS.length],
+    date: item.date || "",
+    checkIn: formatDisplayTime(item.checkIn || item.check_in),
+    checkOut: formatDisplayTime(item.checkOut || item.check_out),
+    workingHrs: Number(
+      item.workingHrs ?? item.workingHours ?? item.working_hours ?? 0
+    ),
+    breakMin: Number(
+      item.breakMin ?? item.breakDuration ?? item.break_duration ?? 0
+    ),
+    overtime: Number(
+      item.overtime ?? item.overtimeHours ?? item.overtime_hours ?? 0
+    ),
+    status: STATUS_LABELS[statusTone] || item.status || "Present",
+    statusTone,
+  };
+};
+
+const normalizeEmployeeOption = (item = {}, index = 0) => {
+  const id = item.id ?? item._id ?? item.employeeId;
+  const name =
+    item.name ||
+    item.fullName ||
+    [item.firstName, item.lastName].filter(Boolean).join(" ") ||
+    "";
+  if (id == null || !name) return null;
+  return {
+    id,
+    name,
+    initials: name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join(""),
+    avatarBg: AVATAR_COLORS[Number(id || index) % AVATAR_COLORS.length],
+  };
+};
+
+const applyPagination = (resData, payload, pageNum, loadedCount, pageCount) => {
+  const pagination =
+    resData?.pagination ??
+    (Array.isArray(payload) ? undefined : payload?.pagination) ??
+    {};
+  const total = Number(pagination?.total ?? resData?.total ?? 0);
+  const totalPages = Number(pagination?.totalPages ?? pagination?.total_pages ?? 0);
+
+  if (totalPages > 0) return pageNum < totalPages;
+  if (total > 0) return loadedCount < total;
+  return pageCount >= PAGE_LIMIT;
 };
 
 export default function HrAttendance() {
   const [selectedDate, setSelectedDate] = useState(TODAY);
-  const [rows, setRows] = useState(INITIAL_ROWS);
+  const [rows, setRows] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [stats, setStats] = useState({
+    employees: 0,
+    present: 0,
+    late: 0,
+    overtime: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
-  const employeeMap = useMemo(
-    () => Object.fromEntries(EMPLOYEES.map((employee) => [employee.id, employee])),
-    []
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const res = await axiosApiCall.get(API_ROUTER?.HR_EMPLOYEE_NAME_LIST);
+      const rowsData = extractRows(res?.data?.data ?? res?.data);
+      setEmployees(
+        rowsData.map(normalizeEmployeeOption).filter(Boolean)
+      );
+    } catch {
+      setEmployees([]);
+    }
+  }, []);
+
+  const fetchSummary = useCallback(async (isCancelled = () => false) => {
+    try {
+      setStatsLoading(true);
+      const params = new URLSearchParams();
+      if (selectedDate) params.set("date", selectedDate);
+
+      const res = await axiosApiCall.get(
+        `${API_ROUTER?.HR_ATTENDANCE_SUMMARY}?${params.toString()}`
+      );
+      if (isCancelled()) return;
+
+      const payload = res?.data?.data ?? res?.data ?? {};
+      const summary =
+        payload?.summary ||
+        payload?.stats ||
+        (typeof payload === "object" && !Array.isArray(payload) ? payload : {});
+
+      setStats({
+        employees: Number(
+          summary.employees ??
+            summary.totalEmployees ??
+            summary.total_employees ??
+            summary.employeeCount ??
+            summary.total ??
+            0
+        ),
+        present: Number(summary.present ?? summary.presentCount ?? 0),
+        late: Number(summary.late ?? summary.lateCount ?? 0),
+        overtime: Number(
+          summary.overtimeMins ??
+            summary.overtime_mins ??
+            summary.overtimeMinutes ??
+            summary.overtime ??
+            summary.overtimeHours ??
+            0
+        ),
+      });
+    } catch {
+      if (!isCancelled()) {
+        setStats({
+          employees: 0,
+          present: 0,
+          late: 0,
+          overtime: 0,
+        });
+      }
+    } finally {
+      if (!isCancelled()) setStatsLoading(false);
+    }
+  }, [selectedDate]);
+
+  const fetchAttendance = useCallback(
+    async (pageNum, isCancelled = () => false, { silent = false } = {}) => {
+      try {
+        if (!silent) setLoading(true);
+
+        const params = new URLSearchParams();
+        params.set("page", String(pageNum));
+        params.set("limit", String(PAGE_LIMIT));
+        if (selectedDate) params.set("startDate", selectedDate);
+        if (selectedDate) params.set("endDate", selectedDate);
+
+        const res = await axiosApiCall.get(
+          `${API_ROUTER?.HR_ATTENDANCE_LIST}?${params.toString()}`
+        );
+        if (isCancelled()) return;
+
+        const resData = res?.data;
+        const payload = resData?.data ?? resData;
+        const list = extractRows(payload).map(normalizeAttendanceRow);
+
+        setRows((prev) => {
+          if (pageNum === 1) return list;
+          const existingIds = new Set(prev.map((row) => String(row.id)));
+          return [
+            ...prev,
+            ...list.filter((row) => !existingIds.has(String(row.id))),
+          ];
+        });
+
+        const loadedCount = (pageNum - 1) * PAGE_LIMIT + list.length;
+        setHasMore(
+          applyPagination(resData, payload, pageNum, loadedCount, list.length)
+        );
+      } catch {
+        if (!isCancelled() && pageNum === 1) {
+          setRows([]);
+          setHasMore(false);
+        }
+      } finally {
+        if (!silent && !isCancelled()) setLoading(false);
+      }
+    },
+    [selectedDate]
   );
 
-  const filteredRows = useMemo(
-    () => rows.filter((row) => row.date === selectedDate),
-    [rows, selectedDate]
-  );
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
 
-  const stats = useMemo(() => {
-    const present = filteredRows.filter((row) => row.statusTone === "present").length;
-    const late = filteredRows.filter((row) => row.statusTone === "late").length;
-    const overtime = filteredRows.reduce((sum, row) => sum + Number(row.overtime || 0), 0);
+  useEffect(() => {
+    setRows([]);
+    setHasMore(true);
+    setPage(1);
+  }, [selectedDate]);
 
-    return [
-      { label: "Employees", value: EMPLOYEES.length, icon: STAT_ICONS.employees },
-      { label: "Present", value: present, icon: STAT_ICONS.present },
-      { label: "Late", value: late, icon: STAT_ICONS.late },
-      { label: "Overtime Mins", value: Math.round(overtime), icon: STAT_ICONS.overtime },
-    ];
-  }, [filteredRows]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchAttendance(page, () => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [page, fetchAttendance]);
 
-  const handleSave = (form) => {
-    const employee = employeeMap[form.employeeId];
-    if (!employee) return;
+  useEffect(() => {
+    let cancelled = false;
+    fetchSummary(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchSummary]);
 
-    const checkIn = form.checkIn;
-    const checkOut = form.checkOut;
-    const checkInMoment = moment(checkIn, ["hh:mm A", "HH:mm"], true);
-    const checkOutMoment = moment(checkOut, ["hh:mm A", "HH:mm"], true);
-    const breakMin = Number(form.breakMinutes || 0);
-    const overtime = Number(form.overtimeMinutes || 0);
-    const totalMinutes = checkOutMoment.diff(checkInMoment, "minutes") - breakMin;
-    const workingHrs = Math.max(totalMinutes / 60, 0);
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore) {
+      setPage((prev) => prev + 1);
+    }
+  }, [loading, hasMore]);
 
-    setRows((prev) => [
+  const metricCards = useMemo(
+    () => [
       {
-        id: Date.now(),
-        employeeId: employee.id,
-        date: form.date || selectedDate,
-        checkIn,
-        checkOut,
-        workingHrs: Number(workingHrs.toFixed(1)),
-        breakMin,
-        overtime,
-        status: STATUS_LABELS[form.status] || "Present",
-        statusTone: form.status || "present",
+        label: "Employees",
+        value: stats.employees,
+        icon: STAT_ICONS.employees,
       },
-      ...prev,
-    ]);
+      {
+        label: "Present",
+        value: stats.present,
+        icon: STAT_ICONS.present,
+      },
+      {
+        label: "Late",
+        value: stats.late,
+        icon: STAT_ICONS.late,
+      },
+      {
+        label: "Overtime Mins",
+        value: Math.round(stats.overtime),
+        icon: STAT_ICONS.overtime,
+      },
+    ],
+    [stats]
+  );
 
-    if (form.date) {
-      setSelectedDate(form.date);
+  const handleSave = () => {
+    setModalOpen(false);
+    setRows([]);
+    setHasMore(true);
+    fetchSummary();
+    if (page === 1) {
+      fetchAttendance(1);
+    } else {
+      setPage(1);
     }
   };
 
   return (
     <>
-      <HrPageHeader $inline>
+      <HrPageHeader $inline $banded>
         <HrPageTitleBlock $inline>
           <h1>Attendance Management</h1>
           <p>Track check-in/out, working hours, and overtime</p>
@@ -278,7 +415,7 @@ export default function HrAttendance() {
       </HrPageHeader>
 
       <HrMetricsGrid>
-        {stats.map((stat) => (
+        {metricCards.map((stat) => (
           <HrStatCard key={stat.label}>
             <div className="stat-top">
               <span className="stat-label">{stat.label}</span>
@@ -286,67 +423,138 @@ export default function HrAttendance() {
                 <InlineSVG src={stat.icon} />
               </span>
             </div>
-            <span className="stat-value">{stat.value}</span>
+            <span className="stat-value">
+              {statsLoading ? (
+                <Skeleton width={40} height={28} />
+              ) : (
+                stat.value
+              )}
+            </span>
           </HrStatCard>
         ))}
       </HrMetricsGrid>
 
       <HrTableCard>
-        <HrTableWrap>
-          <HrTable>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Date</th>
-                <th>Check In</th>
-                <th>Check Out</th>
-                <th>Working Hrs</th>
-                <th>Break (min)</th>
-                <th>Overtime</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((row) => {
-                const employee = employeeMap[row.employeeId];
-                return (
-                  <tr key={row.id}>
+        <HrTableWrap
+          id={ATTENDANCE_SCROLL_ID}
+          style={{ maxHeight: "60vh", overflow: "auto" }}
+        >
+          {loading && page === 1 && rows.length === 0 ? (
+            <HrTable>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Date</th>
+                  <th>Check In</th>
+                  <th>Check Out</th>
+                  <th>Working Hrs</th>
+                  <th>Break (min)</th>
+                  <th>Overtime</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <tr key={`attendance-skeleton-${index}`}>
                     <td>
                       <HrNameCell>
-                        <HrAvatar $bg={employee?.avatarBg}>
-                          {employee?.initials}
-                        </HrAvatar>
-                        {employee?.name}
+                        <Skeleton circle width={36} height={36} />
+                        <Skeleton width={120} height={14} />
                       </HrNameCell>
                     </td>
-                    <td>{row.date}</td>
-                    <td>{row.checkIn}</td>
-                    <td>{row.checkOut}</td>
-                    <td>{row.workingHrs}</td>
-                    <td>{row.breakMin}</td>
-                    <td>{row.overtime}</td>
                     <td>
-                      <HrPill $tone={row.statusTone}>{row.status}</HrPill>
+                      <Skeleton width={90} height={14} />
+                    </td>
+                    <td>
+                      <Skeleton width={50} height={14} />
+                    </td>
+                    <td>
+                      <Skeleton width={50} height={14} />
+                    </td>
+                    <td>
+                      <Skeleton width={40} height={14} />
+                    </td>
+                    <td>
+                      <Skeleton width={40} height={14} />
+                    </td>
+                    <td>
+                      <Skeleton width={40} height={14} />
+                    </td>
+                    <td>
+                      <Skeleton width={70} height={24} borderRadius={999} />
                     </td>
                   </tr>
-                );
-              })}
-              {!filteredRows.length && (
-                <tr>
-                  <td colSpan={8} style={{ textAlign: "center", color: "#8391A1" }}>
-                    No attendance records for this date.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </HrTable>
+                ))}
+              </tbody>
+            </HrTable>
+          ) : (
+            <InfiniteScroll
+              dataLength={rows.length}
+              next={loadMore}
+              hasMore={hasMore}
+              scrollableTarget={ATTENDANCE_SCROLL_ID}
+              loader={
+                <div style={{ textAlign: "center", padding: "12px 0", color: "#8391A1" }}>
+                  Loading more...
+                </div>
+              }
+            >
+              <HrTable>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Date</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Working Hrs</th>
+                    <th>Break (min)</th>
+                    <th>Overtime (hrs)</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.id}>
+                      <td>
+                        <HrNameCell>
+                          <HrAvatar $bg={row.avatarBg}>
+                            {row.initials || "E"}
+                          </HrAvatar>
+                          {row.employeeName}
+                        </HrNameCell>
+                      </td>
+                      <td>{row.date || "-"}</td>
+                      <td>{row.checkIn}</td>
+                      <td>{row.checkOut}</td>
+                      <td>{row.workingHrs}</td>
+                      <td>{row.breakMin}</td>
+                      <td>{row.overtime}</td>
+                      <td>
+                        <HrPill $tone={row.statusTone}>{row.status}</HrPill>
+                      </td>
+                    </tr>
+                  ))}
+                  {!loading && rows.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        style={{ textAlign: "center", color: "#8391A1" }}
+                      >
+                        No attendance records for this date.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </HrTable>
+            </InfiniteScroll>
+          )}
         </HrTableWrap>
       </HrTableCard>
 
       <RecordAttendanceModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        employees={EMPLOYEES}
+        employees={employees}
         defaultDate={selectedDate}
         onSave={handleSave}
       />

@@ -31,6 +31,7 @@ export default function LeaveScheduleTab({
   // Add Form State
   const [newLeaveName, setNewLeaveName] = useState("");
   const [newLeaveDate, setNewLeaveDate] = useState("");
+  const [newLeaveType, setNewLeaveType] = useState("paid");
   const [newLeaveIsClosed, setNewLeaveIsClosed] = useState(true);
   const [newLeaveStart, setNewLeaveStart] = useState("10:00 AM");
   const [newLeaveEnd, setNewLeaveEnd] = useState("02:00 PM");
@@ -69,7 +70,7 @@ export default function LeaveScheduleTab({
     const payload = {
       reason: name,
       leaveDate: moment(newLeaveDate).format("YYYY-MM-DD"),
-      leaveType: newLeaveIsClosed ? "full_day" : "hours",
+      leaveType: newLeaveType || "paid",
       employeeId: therapist?.id,
       start_time: newLeaveIsClosed ? "" : newLeaveStart,
       end_time: newLeaveIsClosed ? "" : newLeaveEnd,
@@ -84,11 +85,13 @@ export default function LeaveScheduleTab({
         toaster("Leave added successfully", TOAST_TYPES.SUCCESS);
         setNewLeaveName("");
         setNewLeaveDate("");
+        setNewLeaveType("paid");
         setNewLeaveIsClosed(true);
         await Promise.all([fetchHolidays(), fetchWorkHours()]);
       } else {
         setNewLeaveName("");
         setNewLeaveDate(null);
+        setNewLeaveType("paid");
         setNewLeaveIsClosed(true);
         toaster(res?.message || "Failed to add leave", TOAST_TYPES.ERROR);
       }
@@ -135,6 +138,19 @@ export default function LeaveScheduleTab({
               value={newLeaveName}
               onChange={(e) => setNewLeaveName(e.target.value)}
             />
+          </div>
+
+          <div className="form-group-item">
+            <label>Leave Type</label>
+            <select
+              className="form-control"
+              value={newLeaveType}
+              onChange={(e) => setNewLeaveType(e.target.value)}
+              aria-label="Leave Type"
+            >
+              <option value="paid">Paid</option>
+              <option value="unpaid">Unpaid</option>
+            </select>
           </div>
 
           <div className="form-group-item date-picker-item">

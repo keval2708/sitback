@@ -119,6 +119,7 @@ export const API_ROUTER = {
   GET_EMPLOYEE_DATE_RANGE: "/employee/get-employee-date-range",
   REMOVE_EMPLOYEE_SCHEDULE: "/employee/remove-employee-schedule",
   ACTIVE_EMPLOYEE_LIST: "/employee/active-employee-list",
+  CREATE_EMPLOYEE_STRIPE_ACCOUNT: "/employee/create-stripe-account",
 
   //Insights
   CRATE_ACCOUNT: "/accountDetails/create-btok-account",
@@ -131,6 +132,7 @@ export const API_ROUTER = {
   DELETE_STRIPE_ACCOUNT: "/accountDetails/delete-stripe-account",
   UPDATE_ACTIVE_STATUS: "/accountDetails/update-account-status",
   PAYMENT_HISTORY: "/payment-history",
+  GET_CURRENT_MONTH_EARNING: "/get-current-month-earning",
 
   //Chat-Module
   CREATE_CHAT: "/chat/create-chat",
@@ -191,6 +193,35 @@ export const API_ROUTER = {
   //Report
   ADD_USER_REPORT: "/report/add-sp-report",
   SPA_HELP: "/serviceprovider/spa-help",
+  GET_PAYROLL_CONFIGURATION: "/hr-module/payroll/get-payroll-configuration",
+  ADD_EDIT_PAYROLL_CONFIGURATION: "/hr-module/payroll/add-edit-payroll-configuration",
+  HR_PAYROLL_LIST: "/hr-module/payroll/get-payroll-list",
+  HR_PAYROLL_ANALYTICS: "/hr-module/payroll/get-payroll-analytics",
+  HR_PAY_SALARY_BY_CASH: "/hr-module/payroll/pay-salary-by-cash",
+  HR_PAY_SALARY: "/hr-module/salary/pay-salary",
+  HR_SALARY_ANALYTIC: "/hr-module/salary/get-salary-analytic",
+  HR_SALARY_LIST: "/hr-module/salary/get-salary-list",
+  SPA_ROLE_LIST: "/spa/role/list",
+  SPA_PERMISSION_LIST: "/spa/permissions/list",
+  HR_EMPLOYEE_LIST: "/hr-module/employee/get-all-employee-list",
+  HR_EMPLOYEE_NAME_LIST: "/hr-module/employee/get-all-employee-name",
+  HR_ATTENDANCE_CREATE: "/hr-module/attendance/create",
+  HR_ATTENDANCE_LIST: "/hr-module/attendance/list",
+  HR_ATTENDANCE_SUMMARY: "/hr-module/attendance/summary",
+  HR_LEAVE_CREATE: "/employee/add-leave-schedule",
+  HR_LEAVE_LIST: "/hr-module/employee-leave/get-leaves-list",
+  HR_LEAVE_COUNT: "/hr-module/employee-leave/get-leave-count",
+  HR_ATTENDANCE_REPORT: "/hr-module/reports/get-attendance-report",
+  HR_LEAVE_REPORT: "/hr-module/reports/get-leave-report",
+  HR_OVERTIME_REPORT: "/hr-module/reports/get-overtime-report",
+  HR_PAYROLL_REPORT: "/hr-module/reports/get-payroll-report",
+  HR_SALARY_REPORT: "/hr-module/reports/get-salary-report",
+  HR_REPORTS_COUNT: "/hr-module/reports/get-reports-count",
+  HR_ADD_EMPLOYEE_TIPS: "/hr-module/tips/add-employee-tips",
+  HR_TIPS_HISTORY: "/hr-module/tips/get-tips-history",
+  HR_EMPLOYEE_TIPS_SUMMARY: "/hr-module/tips/get-employee-tips-summary",
+  HR_DASHBOARD_SUMMARY: "/hr-module/dashboard/get-dashboard-summary",
+  HR_DASHBOARD_HIGHEST_TIP_EMPLOYEE: "/hr-module/dashboard/highest-tip-employee",
 
   // pos
   POS_PRODUCT_LIST: "/pos/product/list",

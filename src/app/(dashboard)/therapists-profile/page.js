@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { Container, Dropdown } from "react-bootstrap";
 import { useTranslation } from "react-i18next";
+import Skeleton from "react-loading-skeleton";
 import { useDispatch, useSelector } from "react-redux";
 import InlineSVG from "svg-inline-react";
 import AddManageScheduleModal from "@/components/dashboards/models/AddManageScheduleModal";
@@ -27,7 +28,6 @@ import { MoreOptionGrey_icon } from "@/styles/svgs";
 import axiosApiCall from "@/utils/axios";
 import { TOAST_ALERTS, TOAST_TYPES } from "@/utils/constants";
 import { removeCookie } from "@/utils/cookie";
-import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 
 const getInitials = (name = "") => {
@@ -147,7 +147,7 @@ export default function TherapistsProfile() {
   const getTherapists = async (loading = false) => {
     try {
       setLoading(loading);
-      const res = await axiosApiCall.post(API_ROUTER?.EMPLOYEE_LIST);
+      const res = await axiosApiCall.post(API_ROUTER?.EMPLOYEE_LIST, { roleId: 1 });
       console.log("res", res);
       if (!res?.status) {
         return toaster(res?.message, TOAST_TYPES.ERROR);
@@ -304,7 +304,7 @@ export default function TherapistsProfile() {
                 <h1>{t("therapistsTitle")}</h1>
                 <p>{t("therapistsRegistered", { count: therapists.length })}</p>
               </div>
-              <button
+              {/* <button
                 type="button"
                 className="add-therapist-btn"
                 onClick={handleAddTherapist}
@@ -318,7 +318,7 @@ export default function TherapistsProfile() {
                 </svg>
 
                 <span>{t("addTherapist")}</span>
-              </button>
+              </button> */}
             </div>
 
             {loading ? (

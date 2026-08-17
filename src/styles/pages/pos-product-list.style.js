@@ -738,18 +738,43 @@ export const CategorySection = styled.div`
   background: #ffffff;
   display: flex;
   align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+`;
+
+export const CategoryScrollBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
 `;
 
 export const CategoryTabContainer = styled.div`
-  display: inline-flex;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 30px;
-  gap: 2px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  gap: 10px;
+  flex: 1;
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 
   &::-webkit-scrollbar {
     display: none;
@@ -760,11 +785,12 @@ export const CategoryPill = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 24px;
-  border-radius: 24px;
+  flex-shrink: 0;
+  padding: 8px 20px;
+  border-radius: 999px;
   font-size: 13.5px;
   font-weight: 600;
-  border: none;
+  border: 1px solid ${props => (props.active ? "#004d87" : "#d0d7e2")};
   background-color: ${props => (props.active ? "#004d87" : "#ffffff")};
   color: ${props => (props.active ? "#ffffff" : "#004d87")};
   cursor: pointer;
@@ -773,7 +799,8 @@ export const CategoryPill = styled.button`
 
   &:hover {
     color: ${props => (props.active ? "#ffffff" : "#003662")};
-    background-color: ${props => (props.active ? "#004d87" : "rgba(0, 77, 135, 0.05)")};
+    background-color: ${props => (props.active ? "#004d87" : "#f8fafc")};
+    border-color: ${props => (props.active ? "#004d87" : "#b7c3d4")};
   }
 `;
 

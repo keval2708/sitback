@@ -114,13 +114,13 @@ export const FormGroup = styled.div`
     }
     &.coming-soon-select {
       .sitback-select-option__control {
-        padding: 7px 15px;
+        padding: 6px 15px;
       }
     }
     .sitback-select-option__control {
       padding: 12px 15px;
       border-radius: 100px;
-      background: #fffef6;
+      background: #FFF;
       border-color: #dadada;
       outline: none !important;
       box-shadow: none !important;
@@ -1013,7 +1013,7 @@ export const Label = styled.label`
 export const Input = styled.input`
   border-radius: 100px;
   border: 1px solid ${theme.color.border};
-  background: ${theme.color.lightwhite};
+  background: ${theme.color.white};
   color: ${theme.color.secondary};
   font-size: 16px;
   font-style: normal;
@@ -1035,11 +1035,16 @@ export const Input = styled.input`
         padding: 14px 30px;
         font-size: 14px;
     `}
+    ${(props) =>
+    props.className === "subscription-price-input" &&
+    css`
+      padding: 12px 30px;
+    `}
     &:-webkit-autofill,
     &:-webkit-autofill:hover,
     &:-webkit-autofill:focus,
     &:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 60px ${theme.color.lightwhite} inset !important;
+    -webkit-box-shadow: 0 0 0 60px ${theme.color.white} inset !important;
     -webkit-text-fill-color: ${theme.color.secondary};
   }
   &::-ms-input-placeholder {
@@ -1114,7 +1119,7 @@ export const Select = styled.select`
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background: ${theme.color.lightwhite} url("images/down-icon.svg") no-repeat;
+  background: ${theme.color.white} url("images/down-icon.svg") no-repeat;
   background-position: right 18px center;
   background-size: 15px;
   ${mediaQueries("xl")`

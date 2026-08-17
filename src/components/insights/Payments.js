@@ -52,6 +52,7 @@ export const Payments = () => {
   const [loading, setLoading] = useState(false);
   const [earning, setEarning] = useState({
     currentMonthEarnings: 0,
+    currentMonthName: "",
   });
   const targets = useRef(null);
   const tooltipRef = useRef(null);
@@ -106,6 +107,26 @@ export const Payments = () => {
     }
   };
 
+  const getCurrentMonthEarning = async () => {
+    try {
+      const res = await axiosApiCall.get(API_ROUTER?.GET_CURRENT_MONTH_EARNING);
+      if (!res?.status) {
+        return toaster(res?.message, TOAST_TYPES.ERROR);
+      }
+
+      const payload = res?.data?.data ?? res?.data ?? {};
+      console.log("payload", payload);
+      setEarning({
+        currentMonthEarnings:
+          payload?.currentMonthEarnings ?? res?.data?.currentMonthEarnings ?? 0,
+        currentMonthName:
+          payload?.currentMonthName ?? res?.data?.currentMonthName ?? "",
+      });
+    } catch (error) {
+      toaster(TOAST_ALERTS.GENERAL_ERROR, TOAST_TYPES.ERROR);
+    }
+  };
+
   const getPaymentHistory = async (selectedDate) => {
     try {
       setPaymentLoading(true);
@@ -116,10 +137,6 @@ export const Payments = () => {
       if (!res?.status) {
         return toaster(res?.message, TOAST_TYPES.ERROR);
       } else {
-        setEarning({
-          currentMonthEarnings: res?.data?.currentMonthEarnings,
-          currentMonthName: res?.data?.currentMonthName,
-        });
         setPaymentHistory(res?.data?.data);
       }
     } catch (error) {
@@ -131,6 +148,7 @@ export const Payments = () => {
 
   useEffect(() => {
     getPaymentHistory();
+    getCurrentMonthEarning();
   }, []);
 
   const deleteAccount = async (bank) => {
@@ -602,7 +620,7 @@ export const Payments = () => {
                                 </h5>
                                 {history?.payment_by == "cash" ? <>
                                   <h5>${parseFloat(prodData?.pamount || 0).toFixed(2)}</h5>
-                                </> : history?.bookingstatus == 4 ? <h5><> ${parseFloat(prodData?.pamount || 0).toFixed(2)} </></h5> : <h5>${parseFloat(prodData?.pamount_without_tax || 0).toFixed(2)}</h5>}
+                                </> : history?.bookingstatus == 4 ? <h5><> ${parseFloat(prodData?.pamount || 0).toFixed(2)} </></h5> : <h5>${parseFloat(prodData?.pamount || 0).toFixed(2)}</h5>}
                                 <h5></h5>
                               </div>
                             </>
@@ -614,7 +632,7 @@ export const Payments = () => {
                         <>
                           <div className="header-bar-wrapper">
                             <h5>Tip {"(" + history?.tipemployeename + ")"}</h5>
-                            <h5>${history?.tip}</h5>
+                            <h5>${parseFloat(history?.tip || 0).toFixed(2)}</h5>
                             <h5></h5>
                           </div>
                         </>
@@ -661,7 +679,7 @@ export const Payments = () => {
                               </Overlay>
                             </h5>
 
-                            <h5>${parseFloat(history?.totalPlateformcharge)?.toFixed(2)}</h5>
+                              <span style={{ color: '#29508699' }}>-</span><h5>${parseFloat(history?.totalPlateformcharge)?.toFixed(2)}</h5>
                             <h5></h5>
                           </div>
                         </>

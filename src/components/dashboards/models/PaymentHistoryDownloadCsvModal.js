@@ -38,6 +38,7 @@ const PaymentHistoryDownloadCsvModal = ({ show, onHide = () => {} }) => {
       if (startDate && endDate) {
         let param = { start_date: startDate, end_date: endDate };
         const res = await axiosApiCall.post(API_ROUTER?.PAYMENT_HISTORY_CSV_DOWNLOAD, param);
+        console.log("paymentHistoryCsvData",res);
         if (!res?.status) {
           toaster(res?.message, TOAST_TYPES.ERROR);
         } else {

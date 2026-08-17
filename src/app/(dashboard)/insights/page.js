@@ -173,14 +173,35 @@ export default function ProfileServices() {
   };
 
   useEffect(() => {
-    if (window.io) {
-      window.io.socket.on("serviceprovider", async (msg) => {
-        if (msg.action == "message_from_user_side" || msg.action == "message_from_admin_to_spa") {
-          getUnreadMsg();
-        }
-      });
-    }
-  }, [window.io]);
+    const handleMsg = async (msg) => {
+      if (
+        msg.action == "message_from_user_side" ||
+        msg.action == "message_from_admin_to_spa" ||
+        msg.action == "message_from_service_provider_side"
+      ) {
+        getUnreadMsg();
+      }
+    };
+
+    const attach = () => {
+      if (!window.io?.socket) return;
+      window.io.socket.off("serviceprovider", handleMsg);
+      window.io.socket.off("admin", handleMsg);
+      window.io.socket.off("message", handleMsg);
+      window.io.socket.on("serviceprovider", handleMsg);
+      window.io.socket.on("admin", handleMsg);
+      window.io.socket.on("message", handleMsg);
+    };
+
+    attach();
+    window.addEventListener("sitback-socket-ready", attach);
+    return () => {
+      window.removeEventListener("sitback-socket-ready", attach);
+      window.io?.socket?.off("serviceprovider", handleMsg);
+      window.io?.socket?.off("admin", handleMsg);
+      window.io?.socket?.off("message", handleMsg);
+    };
+  }, []);
 
   return (
     <MainLayoutWrapper>

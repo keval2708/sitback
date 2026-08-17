@@ -116,6 +116,7 @@ export const generateHourMinute = (hour = 24, minute = 60) => {
 export const getSocketId = () => {
   try {
     return (
+      window.io?.socket?.id ||
       window.io?.socket?._raw?.id ||
       window.io?._raw?.id ||
       window.socketId ||
